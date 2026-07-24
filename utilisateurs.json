@@ -1,0 +1,10 @@
+{
+    "admin": {
+        "mdp": "1234",
+        "role": "Administrateur"
+    },
+    "employe1": {
+        "mdp": "abcd",
+        "role": "Employé"
+    }
+}
