@@ -118,7 +118,7 @@ if "user_connecte" in st.session_state:
         "role"
     ]
 
-    options_menu = ["Signer ma présence"]
+    options_menu = ["Signer ma présence", "Pointer mon départ"]
     if role_actuel == "Administrateur":
         options_menu.append("Tableau de bord Admin")
 
@@ -196,10 +196,10 @@ elif menu == "S'inscrire":
                 else:
                     st.warning("Veuillez remplir tous les champs.")
 
-# --- 3. SIGNER LA PRÉSENCE ---
+# --- 3. SIGNER LA PRÉSENCE (ARRIVÉE) ---
 elif menu == "Signer ma présence":
     st.markdown(
-        "<h1 style='color: #00b4d8;'>ENGITAS - Validation de présence</h1>",
+        "<h1 style='color: #00b4d8;'>ENGITAS - Validation de présence (Arrivée)</h1>",
         unsafe_allow_html=True,
     )
 
@@ -260,7 +260,7 @@ elif menu == "Signer ma présence":
             with col2:
                 lon_user = st.number_input("Longitude", format="%.6f", value=0.0)
 
-        if st.button("Valider ma présence", type="primary"):
+        if st.button("Valider mon arrivée", type="primary"):
             if lat_user == 0.0 or lon_user == 0.0:
                 st.warning("Veuillez renseigner des coordonnées valides.")
             else:
@@ -271,6 +271,7 @@ elif menu == "Signer ma présence":
                 date_du_jour = maintenant.strftime("%Y-%m-%d")
                 heure_str = maintenant.strftime("%H:%M:%S")
 
+                # Vérifier si l'utilisateur a déjà pointé son arrivée aujourd'hui sans départ enregistré
                 deja_pointe = any(
                     p["Nom"] == st.session_state.user_connecte
                     and p["Date"] == date_du_jour
@@ -278,22 +279,66 @@ elif menu == "Signer ma présence":
                 )
 
                 if deja_pointe:
-                    st.warning("Vous avez déjà pointé aujourd'hui.")
+                    st.warning("Vous avez déjà enregistré une présence aujourd'hui.")
                 elif distance <= RAYON_AUTORISE_KM:
                     presence_data = {
                         "Nom": st.session_state.user_connecte,
                         "Date": date_du_jour,
-                        "Heure": heure_str,
+                        "Heure_Arrivee": heure_str,
+                        "Heure_Depart": None,
+                        "Temps_Travail": None,
                         "Distance (km)": round(distance, 3),
                         "Statut": "Présent(e)",
                     }
                     st.session_state.presences.append(presence_data)
                     sauvegarder_presences(st.session_state.presences)
-                    st.success("✅ Présence validée avec succès chez ENGITAS !")
+                    st.success("✅ Arrivée validée avec succès chez ENGITAS !")
                 else:
                     st.error(
                         f"❌ Trop loin du site ({round(distance, 2)} km)."
                     )
+
+# --- 3. BIS - POINTER LE DÉPART ---
+elif menu == "Pointer mon départ":
+    st.markdown(
+        "<h1 style='color: #00b4d8;'>ENGITAS - Validation de Départ</h1>",
+        unsafe_allow_html=True,
+    )
+    
+    maintenant = datetime.now()
+    date_du_jour = maintenant.strftime("%Y-%m-%d")
+    heure_str = maintenant.strftime("%H:%M:%S")
+
+    # Chercher l'entrée du jour pour l'utilisateur connecté qui n'a pas encore de départ
+    enregistrement_actif = None
+    for p in st.session_state.presences:
+        if (
+            p["Nom"] == st.session_state.user_connecte
+            and p["Date"] == date_du_jour
+            and (p.get("Heure_Depart") is None or p.get("Heure_Depart") == "")
+        ):
+            enregistrement_actif = p
+            break
+
+    if enregistrement_actif:
+        st.info(f"Arrivée enregistrée aujourd'hui à : **{enregistrement_actif['Heure_Arrivee']}**")
+        if st.button("Valider mon départ", type="primary"):
+            enregistrement_actif["Heure_Depart"] = heure_str
+            
+            # Calcul du temps de travail
+            fmt = "%H:%M:%S"
+            t_arrivee = datetime.strptime(enregistrement_actif["Heure_Arrivee"], fmt)
+            t_depart = datetime.strptime(heure_str, fmt)
+            delta = t_depart - t_arrivee
+            
+            heures = int(delta.seconds // 3600)
+            minutes = int((delta.seconds % 3600) // 60)
+            enregistrement_actif["Temps_Travail"] = f"{heures}h {minutes}min"
+            
+            sauvegarder_presences(st.session_state.presences)
+            st.success(f"✅ Départ validé ! Temps de travail total : {heures}h {minutes}min.")
+    else:
+        st.warning("Aucun pointage d'arrivée actif trouvé pour aujourd'hui, ou vous avez déjà pointé votre départ.")
 
 # --- 4. TABLEAU DE BORD ADMIN ---
 elif menu == "Tableau de bord Admin":
@@ -313,14 +358,12 @@ elif menu == "Tableau de bord Admin":
     df_global = (
         pd.DataFrame(st.session_state.presences)
         if len(st.session_state.presences) > 0
-        else pd.DataFrame(columns=["Nom", "Date", "Heure", "Distance (km)", "Statut"])
+        else pd.DataFrame(columns=["Nom", "Date", "Heure_Arrivee", "Heure_Depart", "Temps_Travail", "Distance (km)", "Statut"])
     )
 
-    # Séparation des pointages de 08H (matin) et 16H (soir)
-    if not df_global.empty:
-        df_global["Heure_dt"] = pd.to_datetime(df_global["Heure"], format="%H:%M:%S", errors="coerce")
+    if not df_global.empty and "Heure_Arrivee" in df_global.columns:
+        df_global["Heure_dt"] = pd.to_datetime(df_global["Heure_Arrivee"], format="%H:%M:%S", errors="coerce")
         
-        # Matin : pointages avant 12h00 (ex: autour de 08H)
         presents_08h = (
             df_global[
                 (df_global["Date"] == date_auj)
@@ -331,7 +374,6 @@ elif menu == "Tableau de bord Admin":
             .tolist()
         )
         
-        # Soir : pointages à partir de 12h00 (ex: autour de 16H)
         presents_16h = (
             df_global[
                 (df_global["Date"] == date_auj)
@@ -367,7 +409,7 @@ elif menu == "Tableau de bord Admin":
     )
 
     with onglet_presents:
-        st.markdown("### Historique complet des présences")
+        st.markdown("### Historique complet des présences et temps de travail")
         if not df_global.empty:
             tous_noms = list(st.session_state.utilisateurs.keys())
             employe_selectionne = st.selectbox(
@@ -379,7 +421,6 @@ elif menu == "Tableau de bord Admin":
                 else df_global[df_global["Nom"] == employe_selectionne]
             )
 
-            # Nettoyage de la colonne temporaire avant affichage
             df_affiche_clean = df_affiche.drop(columns=["Heure_dt"], errors="ignore")
             st.dataframe(df_affiche_clean, width="stretch")
             
