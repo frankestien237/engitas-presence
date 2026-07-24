@@ -47,42 +47,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- COMPOSANT JS POUR SYNCHRONISER L'HEURE DE L'APPAREIL ---
-def obtenir_heure_client():
-    js_code = """
-    <script>
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    
-    const timeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-    
-    // Envoi de l'heure locale au parent via localStorage ou affichage invisible récupérable
-    window.parent.postMessage({type: 'streamlit:setComponentValue', value: timeString}, '*');
-    </script>
-    """
-    # Utilisation d'un composant personnalisé léger ou stockage en session state via input caché / query params si besoin
-    # Alternative simple et robuste en Streamlit pur : 
-    res = components.html(f"""
-        <script>
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            const hh = String(now.getHours()).padStart(2, '0');
-            const min = String(now.getMinutes()).padStart(2, '0');
-            const ss = String(now.getSeconds()).padStart(2, '0');
-            const localIso = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-            
-            // Stocke dans sessionStorage accessible ou transmet
-            window.parent.document.dispatchEvent(new CustomEvent("client_time", {{detail: localIso}}));
-        </script>
-    """, height=0)
-
 # --- COORDONNÉES DE RÉFÉRENCE ---
 CENTRE_LAT = 4.0511
 CENTRE_LON = 9.7679
@@ -240,11 +204,10 @@ elif menu == "Signer ma présence":
         unsafe_allow_html=True,
     )
 
-    # Récupération de l'heure du client via JavaScript injecté dans la page
-    time_component = components.html(
+    # Affichage de l'horloge synchronisée de l'appareil client via JS
+    components.html(
         """
         <div id="clock" style="color: #00b4d8; font-family: monospace; font-size: 16px; margin-bottom: 10px;"></div>
-        <input type="hidden" id="client_time_input" name="client_time">
         <script>
             function updateTime() {
                 const now = new Date();
@@ -256,7 +219,6 @@ elif menu == "Signer ma présence":
                 const ss = String(now.getSeconds()).padStart(2, '0');
                 const timeStr = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
                 document.getElementById('clock').innerText = "🕒 Heure synchronisée de votre appareil : " + timeStr;
-                sessionStorage.setItem('engitas_client_time', timeStr);
             }
             updateTime();
             setInterval(updateTime, 1000);
@@ -268,8 +230,6 @@ elif menu == "Signer ma présence":
     role_user = st.session_state.utilisateurs[st.session_state.user_connecte][
         "role"
     ]
-    
-    # Heure de secours basée sur le serveur si le JS n'a pas encore feed
     maintenant = datetime.now()
     acces_autorise = True
 
@@ -324,10 +284,8 @@ elif menu == "Signer ma présence":
             with col2:
                 lon_user = st.number_input("Longitude", format="%.6f", value=0.0)
 
-        # Récupération sécurisée via un composant de saisie de l'heure locale JS
-        # On utilise une astuce avec st.text_input invisible ou un composant personnalisé stocké
         choix_synchro = st.text_input(
-            "Confirmez l'heure affichée sur votre téléphone (ex: Format AAAA-MM-JJ HH:MM:SS ou laissez l'automatique)",
+            "Confirmez l'heure affichée sur votre téléphone (Format AAAA-MM-JJ HH:MM:SS)",
             value=maintenant.strftime("%Y-%m-%d %H:%M:%S")
         )
 
@@ -367,7 +325,7 @@ elif menu == "Signer ma présence":
                     }
                     st.session_state.presences.append(presence_data)
                     sauvegarder_presences(st.session_state.presences)
-                    st.success(f"✅ Arrivée validée avec succès à {heure_str} (synchronisée avec votre appareil) !")
+                    st.success(f"✅ Arrivée validée avec succès à {heure_str} !")
                 else:
                     st.error(
                         f"❌ Trop loin du site ({round(distance, 2)} km)."
@@ -383,7 +341,7 @@ elif menu == "Pointer mon départ":
     maintenant = datetime.now()
     
     choix_synchro_depart = st.text_input(
-        "Confirmez l'heure de départ de votre téléphone",
+        "Confirmez l'heure de départ de votre téléphone (Format AAAA-MM-JJ HH:MM:SS)",
         value=maintenant.strftime("%Y-%m-%d %H:%M:%S")
     )
 
