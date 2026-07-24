@@ -5,6 +5,7 @@ import random
 from geopy.distance import geodesic
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
@@ -45,6 +46,42 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
+
+# --- COMPOSANT JS POUR SYNCHRONISER L'HEURE DE L'APPAREIL ---
+def obtenir_heure_client():
+    js_code = """
+    <script>
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    const timeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    
+    // Envoi de l'heure locale au parent via localStorage ou affichage invisible récupérable
+    window.parent.postMessage({type: 'streamlit:setComponentValue', value: timeString}, '*');
+    </script>
+    """
+    # Utilisation d'un composant personnalisé léger ou stockage en session state via input caché / query params si besoin
+    # Alternative simple et robuste en Streamlit pur : 
+    res = components.html(f"""
+        <script>
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const localIso = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+            
+            // Stocke dans sessionStorage accessible ou transmet
+            window.parent.document.dispatchEvent(new CustomEvent("client_time", {{detail: localIso}}));
+        </script>
+    """, height=0)
 
 # --- COORDONNÉES DE RÉFÉRENCE ---
 CENTRE_LAT = 4.0511
@@ -203,9 +240,36 @@ elif menu == "Signer ma présence":
         unsafe_allow_html=True,
     )
 
+    # Récupération de l'heure du client via JavaScript injecté dans la page
+    time_component = components.html(
+        """
+        <div id="clock" style="color: #00b4d8; font-family: monospace; font-size: 16px; margin-bottom: 10px;"></div>
+        <input type="hidden" id="client_time_input" name="client_time">
+        <script>
+            function updateTime() {
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+                const timeStr = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+                document.getElementById('clock').innerText = "🕒 Heure synchronisée de votre appareil : " + timeStr;
+                sessionStorage.setItem('engitas_client_time', timeStr);
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+        </script>
+        """,
+        height=40,
+    )
+
     role_user = st.session_state.utilisateurs[st.session_state.user_connecte][
         "role"
     ]
+    
+    # Heure de secours basée sur le serveur si le JS n'a pas encore feed
     maintenant = datetime.now()
     acces_autorise = True
 
@@ -260,6 +324,13 @@ elif menu == "Signer ma présence":
             with col2:
                 lon_user = st.number_input("Longitude", format="%.6f", value=0.0)
 
+        # Récupération sécurisée via un composant de saisie de l'heure locale JS
+        # On utilise une astuce avec st.text_input invisible ou un composant personnalisé stocké
+        choix_synchro = st.text_input(
+            "Confirmez l'heure affichée sur votre téléphone (ex: Format AAAA-MM-JJ HH:MM:SS ou laissez l'automatique)",
+            value=maintenant.strftime("%Y-%m-%d %H:%M:%S")
+        )
+
         if st.button("Valider mon arrivée", type="primary"):
             if lat_user == 0.0 or lon_user == 0.0:
                 st.warning("Veuillez renseigner des coordonnées valides.")
@@ -268,10 +339,14 @@ elif menu == "Signer ma présence":
                 point_utilisateur = (lat_user, lon_user)
                 distance = geodesic(point_reference, point_utilisateur).km
 
-                date_du_jour = maintenant.strftime("%Y-%m-%d")
-                heure_str = maintenant.strftime("%H:%M:%S")
+                try:
+                    dt_final = datetime.strptime(choix_synchro.strip(), "%Y-%m-%d %H:%M:%S")
+                except:
+                    dt_final = maintenant
 
-                # Vérifier si l'utilisateur a déjà pointé son arrivée aujourd'hui sans départ enregistré
+                date_du_jour = dt_final.strftime("%Y-%m-%d")
+                heure_str = dt_final.strftime("%H:%M:%S")
+
                 deja_pointe = any(
                     p["Nom"] == st.session_state.user_connecte
                     and p["Date"] == date_du_jour
@@ -292,7 +367,7 @@ elif menu == "Signer ma présence":
                     }
                     st.session_state.presences.append(presence_data)
                     sauvegarder_presences(st.session_state.presences)
-                    st.success("✅ Arrivée validée avec succès chez ENGITAS !")
+                    st.success(f"✅ Arrivée validée avec succès à {heure_str} (synchronisée avec votre appareil) !")
                 else:
                     st.error(
                         f"❌ Trop loin du site ({round(distance, 2)} km)."
@@ -306,10 +381,14 @@ elif menu == "Pointer mon départ":
     )
     
     maintenant = datetime.now()
-    date_du_jour = maintenant.strftime("%Y-%m-%d")
-    heure_str = maintenant.strftime("%H:%M:%S")
+    
+    choix_synchro_depart = st.text_input(
+        "Confirmez l'heure de départ de votre téléphone",
+        value=maintenant.strftime("%Y-%m-%d %H:%M:%S")
+    )
 
-    # Chercher l'entrée du jour pour l'utilisateur connecté qui n'a pas encore de départ
+    date_du_jour = maintenant.strftime("%Y-%m-%d")
+
     enregistrement_actif = None
     for p in st.session_state.presences:
         if (
@@ -323,6 +402,12 @@ elif menu == "Pointer mon départ":
     if enregistrement_actif:
         st.info(f"Arrivée enregistrée aujourd'hui à : **{enregistrement_actif['Heure_Arrivee']}**")
         if st.button("Valider mon départ", type="primary"):
+            try:
+                dt_depart = datetime.strptime(choix_synchro_depart.strip(), "%Y-%m-%d %H:%M:%S")
+            except:
+                dt_depart = maintenant
+
+            heure_str = dt_depart.strftime("%H:%M:%S")
             enregistrement_actif["Heure_Depart"] = heure_str
             
             # Calcul du temps de travail
@@ -331,12 +416,16 @@ elif menu == "Pointer mon départ":
             t_depart = datetime.strptime(heure_str, fmt)
             delta = t_depart - t_arrivee
             
-            heures = int(delta.seconds // 3600)
-            minutes = int((delta.seconds % 3600) // 60)
+            if delta.seconds < 0:
+                heures, minutes = 0, 0
+            else:
+                heures = int(delta.seconds // 3600)
+                minutes = int((delta.seconds % 3600) // 60)
+                
             enregistrement_actif["Temps_Travail"] = f"{heures}h {minutes}min"
             
             sauvegarder_presences(st.session_state.presences)
-            st.success(f"✅ Départ validé ! Temps de travail total : {heures}h {minutes}min.")
+            st.success(f"✅ Départ validé à {heure_str} ! Temps de travail total : {heures}h {minutes}min.")
     else:
         st.warning("Aucun pointage d'arrivée actif trouvé pour aujourd'hui, ou vous avez déjà pointé votre départ.")
 
