@@ -329,7 +329,6 @@ elif menu == "Signer ma présence":
             "### Position GPS (Calcul automatique de la distance au site)"
         )
 
-        # Simulation de récupération automatique ou saisie simplifiée avec option auto
         mode_gps = st.radio(
             "Mode de géolocalisation",
             [
