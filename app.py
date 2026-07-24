@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import os
+import random
 from geopy.distance import geodesic
 import pandas as pd
 import streamlit as st
@@ -10,7 +11,7 @@ st.set_page_config(
     page_title="ENGITAS - Système de Présence", page_icon="🛡️", layout="wide"
 )
 
-# --- STYLE CSS PERSONNALISÉ (Thème Engitas) ---
+# --- STYLE CSS PERSONNALISÉ ---
 st.markdown(
     """
     <style>
@@ -60,8 +61,16 @@ def charger_utilisateurs():
             return json.load(f)
     else:
         users_defaut = {
-            "admin": {"mdp": "1234", "role": "Administrateur"},
-            "employe1": {"mdp": "abcd", "role": "Employé"},
+            "admin": {
+                "mdp": "1234",
+                "role": "Administrateur",
+                "telephone": "600000000",
+            },
+            "employe1": {
+                "mdp": "abcd",
+                "role": "Employé",
+                "telephone": "611111111",
+            },
         }
         sauvegarder_utilisateurs(users_defaut)
         return users_defaut
@@ -90,6 +99,11 @@ if "utilisateurs" not in st.session_state:
 
 if "presences" not in st.session_state:
     st.session_state.presences = charger_presences()
+
+if "sms_code" not in st.session_state:
+    st.session_state.sms_code = None
+if "tel_en_cours" not in st.session_state:
+    st.session_state.tel_en_cours = None
 
 # --- BARRE LATÉRALE ---
 if os.path.exists("logo_engitas.png"):
@@ -122,7 +136,9 @@ if "user_connecte" in st.session_state:
         del st.session_state.user_connecte
         st.rerun()
 else:
-    menu = st.sidebar.radio("Navigation", ["Connexion", "S'inscrire"])
+    menu = st.sidebar.radio(
+        "Navigation", ["Connexion", "S'inscrire", "Mot de passe oublié / SMS"]
+    )
 
 # --- 1. CONNEXION ---
 if menu == "Connexion":
@@ -133,24 +149,48 @@ if menu == "Connexion":
             unsafe_allow_html=True,
         )
         st.markdown(
-            "<h3 style='text-align: center; color: #ffffff;'>🔐 Connexion au Système de Présence</h3>",
+            "<h3 style='text-align: center; color: #ffffff;'>🔐 Connexion</h3>",
             unsafe_allow_html=True,
         )
+
+        type_connexion = st.radio(
+            "Se connecter via :", ["Nom d'utilisateur", "Numéro de téléphone"]
+        )
+
         with st.form("form_connexion"):
-            nom = st.text_input("Nom d'utilisateur")
+            if type_connexion == "Nom d'utilisateur":
+                identifiant = st.text_input("Nom d'utilisateur")
+            else:
+                identifiant = st.text_input("Numéro de téléphone")
+
             mdp = st.text_input("Mot de passe", type="password")
             valider = st.form_submit_button("Se connecter", width="stretch")
 
             if valider:
-                if nom in st.session_state.utilisateurs:
-                    if st.session_state.utilisateurs[nom].get("mdp") == mdp:
-                        st.session_state.user_connecte = nom
+                utilisateur_trouve = None
+                if type_connexion == "Nom d'utilisateur":
+                    if identifiant in st.session_state.utilisateurs:
+                        utilisateur_trouve = identifiant
+                else:
+                    for nom_u, infos in st.session_state.utilisateurs.items():
+                        if infos.get("telephone") == identifiant:
+                            utilisateur_trouve = nom_u
+                            break
+
+                if utilisateur_trouve:
+                    if (
+                        st.session_state.utilisateurs[utilisateur_trouve].get(
+                            "mdp"
+                        )
+                        == mdp
+                    ):
+                        st.session_state.user_connecte = utilisateur_trouve
                         st.success("Connexion réussie !")
                         st.rerun()
                     else:
-                        st.error("Mot de passe incorrect")
+                        st.error("Mot de passe incorrect.")
                 else:
-                    st.error("Utilisateur inconnu")
+                    st.error("Utilisateur introuvable.")
 
 # --- 2. INSCRIPTION ---
 elif menu == "S'inscrire":
@@ -166,17 +206,19 @@ elif menu == "S'inscrire":
         )
         with st.form("form_inscription"):
             nouveau_nom = st.text_input("Nom d'utilisateur")
+            nouveau_tel = st.text_input("Numéro de téléphone")
             nouveau_mdp = st.text_input("Mot de passe", type="password")
             valider_insc = st.form_submit_button("S'inscrire", width="stretch")
 
             if valider_insc:
-                if nouveau_nom and nouveau_mdp:
+                if nouveau_nom and nouveau_tel and nouveau_mdp:
                     if nouveau_nom in st.session_state.utilisateurs:
                         st.error("Ce nom d'utilisateur existe déjà.")
                     else:
                         st.session_state.utilisateurs[nouveau_nom] = {
                             "mdp": nouveau_mdp,
                             "role": "Employé",
+                            "telephone": nouveau_tel,
                         }
                         sauvegarder_utilisateurs(st.session_state.utilisateurs)
                         st.success(
@@ -185,7 +227,65 @@ elif menu == "S'inscrire":
                 else:
                     st.warning("Veuillez remplir tous les champs.")
 
-# --- 3. SIGNER LA PRÉSENCE ---
+# --- 3. MOT DE PASSE OUBLIÉ / SMS ---
+elif menu == "Mot de passe oublié / SMS":
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(
+            "<h1 style='text-align: center; color: #00b4d8;'>ENGITAS</h1>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<h3 style='text-align: center; color: #ffffff;'>📱 Récupération par SMS</h3>",
+            unsafe_allow_html=True,
+        )
+
+        tel_saisi = st.text_input("Entrez votre numéro de téléphone")
+
+        if st.button("Envoyer le code SMS"):
+            utilisateur_tel = None
+            for nom_u, infos in st.session_state.utilisateurs.items():
+                if infos.get("telephone") == tel_saisi:
+                    utilisateur_tel = nom_u
+                    break
+
+            if utilisateur_tel:
+                code_genere = str(random.randint(1000, 9999))
+                st.session_state.sms_code = code_genere
+                st.session_state.tel_en_cours = utilisateur_tel
+                st.success(
+                    f"Simulation SMS : Un code a été envoyé au {tel_saisi}."
+                )
+            else:
+                st.error("Ce numéro de téléphone n'est associé à aucun compte.")
+
+        if st.session_state.sms_code:
+            st.info(
+                f"🔒 [Simulation Mode] Code envoyé : **{st.session_state.sms_code}**"
+            )
+            code_entre = st.text_input(
+                "Entrez le code reçu par SMS", type="password"
+            )
+            nouveau_mdp_sms = st.text_input(
+                "Nouveau mot de passe", type="password"
+            )
+
+            if st.button("Valider et changer le mot de passe"):
+                if code_entre == st.session_state.sms_code:
+                    user_cible = st.session_state.tel_en_cours
+                    st.session_state.utilisateurs[user_cible][
+                        "mdp"
+                    ] = nouveau_mdp_sms
+                    sauvegarder_utilisateurs(st.session_state.utilisateurs)
+                    st.success(
+                        "Mot de passe modifié avec succès ! Vous pouvez vous connecter."
+                    )
+                    st.session_state.sms_code = None
+                    st.session_state.tel_en_cours = None
+                else:
+                    st.error("Code SMS incorrect.")
+
+# --- 4. SIGNER LA PRÉSENCE ---
 elif menu == "Signer ma présence":
     st.markdown(
         "<h1 style='color: #00b4d8;'>ENGITAS - Validation de présence</h1>",
@@ -200,12 +300,12 @@ elif menu == "Signer ma présence":
 
     if role_user == "Employé":
         st.info(
-            "🕒 **Horaires d'ouverture ENGITAS :** Du lundi au vendredi, de 17h00 à 08h50."
+            "🕒 **Horaires d'ouverture ENGITAS :** Du lundi au vendredi, de 16h00 à 08h50."
         )
         jour_semaine = maintenant.weekday()
         heure_actuelle_time = maintenant.time()
 
-        heure_ouverture = datetime.strptime("17:00:00", "%H:%M:%S").time()
+        heure_ouverture = datetime.strptime("16:00:00", "%H:%M:%S").time()
         heure_fermeture = datetime.strptime("08:50:00", "%H:%M:%S").time()
 
         est_un_jour_ouvrable = 0 <= jour_semaine <= 4
@@ -225,12 +325,31 @@ elif menu == "Signer ma présence":
         )
 
     if acces_autorise:
-        st.markdown("### Entrez vos coordonnées GPS actuelles")
-        col1, col2 = st.columns(2)
-        with col1:
-            lat_user = st.number_input("Latitude", format="%.6f", value=0.0)
-        with col2:
-            lon_user = st.number_input("Longitude", format="%.6f", value=0.0)
+        st.markdown(
+            "### Position GPS (Calcul automatique de la distance au site)"
+        )
+
+        # Simulation de récupération automatique ou saisie simplifiée avec option auto
+        mode_gps = st.radio(
+            "Mode de géolocalisation",
+            [
+                "Simulation Automatique (Bureau ENGITAS)",
+                "Saisie manuelle des coordonnées",
+            ],
+        )
+
+        if mode_gps == "Simulation Automatique (Bureau ENGITAS)":
+            lat_user = CENTRE_LAT
+            lon_user = CENTRE_LON
+            st.success(
+                "📍 Position détectée automatiquement sur le site ENGITAS."
+            )
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                lat_user = st.number_input("Latitude", format="%.6f", value=0.0)
+            with col2:
+                lon_user = st.number_input("Longitude", format="%.6f", value=0.0)
 
         if st.button("Valider ma présence", type="primary"):
             if lat_user == 0.0 or lon_user == 0.0:
@@ -267,7 +386,7 @@ elif menu == "Signer ma présence":
                         f"❌ Trop loin du site ({round(distance, 2)} km)."
                     )
 
-# --- 4. TABLEAU DE BORD ADMIN ---
+# --- 5. TABLEAU DE BORD ADMIN ---
 elif menu == "Tableau de bord Admin":
     st.markdown(
         "<h1 style='color: #00b4d8;'>ENGITAS - Tableau de Bord Administrateur</h1>",
