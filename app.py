@@ -316,29 +316,48 @@ elif menu == "Tableau de bord Admin":
         else pd.DataFrame(columns=["Nom", "Date", "Heure", "Distance (km)", "Statut"])
     )
 
-    presents_aujourd_hui = (
-        df_global[
-            (df_global["Date"] == date_auj)
-            & (df_global["Nom"].isin(employes_inscrits))
-        ]["Nom"]
-        .unique()
-        .tolist()
-        if not df_global.empty
-        else []
-    )
-    nb_presents_jour = len(presents_aujourd_hui)
-    absents_aujourd_hui = [
-        e for e in employes_inscrits if e not in presents_aujourd_hui
-    ]
-    nb_absents_jour = len(absents_aujourd_hui)
+    # Séparation des pointages de 08H (matin) et 16H (soir)
+    if not df_global.empty:
+        df_global["Heure_dt"] = pd.to_datetime(df_global["Heure"], format="%H:%M:%S", errors="coerce")
+        
+        # Matin : pointages avant 12h00 (ex: autour de 08H)
+        presents_08h = (
+            df_global[
+                (df_global["Date"] == date_auj)
+                & (df_global["Nom"].isin(employes_inscrits))
+                & (df_global["Heure_dt"].dt.hour < 12)
+            ]["Nom"]
+            .unique()
+            .tolist()
+        )
+        
+        # Soir : pointages à partir de 12h00 (ex: autour de 16H)
+        presents_16h = (
+            df_global[
+                (df_global["Date"] == date_auj)
+                & (df_global["Nom"].isin(employes_inscrits))
+                & (df_global["Heure_dt"].dt.hour >= 12)
+            ]["Nom"]
+            .unique()
+            .tolist()
+        )
+    else:
+        presents_08h = []
+        presents_16h = []
+
+    nb_presents_08h = len(presents_08h)
+    nb_presents_16h = len(presents_16h)
+
+    absents_08h = [e for e in employes_inscrits if e not in presents_08h]
+    absents_16h = [e for e in employes_inscrits if e not in presents_16h]
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Employés", total_employes)
     with col2:
-        st.metric("Présents", nb_presents_jour)
+        st.metric("Présents 08H", nb_presents_08h)
     with col3:
-        st.metric("Absents", nb_absents_jour)
+        st.metric("Présents 16H", nb_presents_16h)
     with col4:
         st.metric("Total Pointages", len(df_global))
 
@@ -360,8 +379,11 @@ elif menu == "Tableau de bord Admin":
                 else df_global[df_global["Nom"] == employe_selectionne]
             )
 
-            st.dataframe(df_affiche, width="stretch")
-            csv_data = df_affiche.to_csv(index=False).encode("utf-8")
+            # Nettoyage de la colonne temporaire avant affichage
+            df_affiche_clean = df_affiche.drop(columns=["Heure_dt"], errors="ignore")
+            st.dataframe(df_affiche_clean, width="stretch")
+            
+            csv_data = df_affiche_clean.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="📥 Télécharger le rapport (CSV)",
                 data=csv_data,
@@ -372,11 +394,25 @@ elif menu == "Tableau de bord Admin":
             st.info("Aucune présence enregistrée.")
 
     with onglet_absents:
-        st.markdown(f"### Absents du {date_auj}")
-        if absents_aujourd_hui:
-            df_absents = pd.DataFrame(
-                {"Nom": absents_aujourd_hui, "Date": date_auj, "Statut": "Absent(e)"}
-            )
-            st.dataframe(df_absents, width="stretch")
-        else:
-            st.success("🎉 Aucun absent aujourd'hui chez ENGITAS !")
+        st.markdown(f"### Suivi des absents du {date_auj}")
+        col_abs1, col_abs2 = st.columns(2)
+        
+        with col_abs1:
+            st.markdown("#### Session 08H")
+            if absents_08h:
+                df_abs_08 = pd.DataFrame(
+                    {"Nom": absents_08h, "Date": date_auj, "Session": "08H", "Statut": "Absent(e)"}
+                )
+                st.dataframe(df_abs_08, width="stretch")
+            else:
+                st.success("🎉 Aucun absent à 08H !")
+
+        with col_abs2:
+            st.markdown("#### Session 16H")
+            if absents_16h:
+                df_abs_16 = pd.DataFrame(
+                    {"Nom": absents_16h, "Date": date_auj, "Session": "16H", "Statut": "Absent(e)"}
+                )
+                st.dataframe(df_abs_16, width="stretch")
+            else:
+                st.success("🎉 Aucun absent à 16H !")
