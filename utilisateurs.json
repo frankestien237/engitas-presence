@@ -1,0 +1,26 @@
+import json
+import os
+
+
+def charger_utilisateurs():
+    nom_fichier = "utilisateurs.json"  # (Remplace par le nom exact de ton fichier JSON si c'est un autre)
+    if not os.path.exists(nom_fichier) or os.path.getsize(nom_fichier) == 0:
+        return {
+            "admin": {"password": "adminpassword", "role": "Administrateur"}
+        }
+
+    try:
+        with open(nom_fichier, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not data:  # Si le fichier contient juste {} ou est vide
+                return {
+                    "admin": {
+                        "password": "adminpassword",
+                        "role": "Administrateur",
+                    }
+                }
+            return data
+    except (json.JSONDecodeError, Exception):
+        return {
+            "admin": {"password": "adminpassword", "role": "Administrateur"}
+        }
