@@ -1,10 +1,18 @@
-{
-    "admin": {
-        "mdp": "1234",
-        "role": "Administrateur"
-    },
-    "employe1": {
-        "mdp": "abcd",
-        "role": "Employé"
-    }
-}
+import json
+import os
+
+
+def charger_utilisateurs():
+    if not os.path.exists("utilisateurs.json") or os.path.getsize(
+        "utilisateurs.json"
+    ) == 0:
+        return {
+            "admin": {"password": "adminpassword", "role": "Administrateur"}
+        }
+    with open("utilisateurs.json", "r", encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return {
+                "admin": {"password": "adminpassword", "role": "Administrateur"}
+            }
