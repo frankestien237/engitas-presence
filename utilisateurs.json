@@ -3,23 +3,29 @@ import os
 
 
 def charger_utilisateurs():
-    nom_fichier = "utilisateurs.json"  # Vérifie que c'est le bon nom de fichier
+    nom_fichier = "utilisateurs.json"
+    # Vérifie si le fichier existe ou s'il est vide (taille 0 octets)
     if not os.path.exists(nom_fichier) or os.path.getsize(nom_fichier) == 0:
         return {
             "admin": {"password": "adminpassword", "role": "Administrateur"}
         }
+
     try:
         with open(nom_fichier, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if not data:
+            contenu = f.read().strip()
+            if not contenu:  # Si le fichier ne contient rien ou des espaces vides
                 return {
                     "admin": {
                         "password": "adminpassword",
                         "role": "Administrateur",
                     }
                 }
-            return data
+            return json.loads(contenu)
     except Exception:
         return {
             "admin": {"password": "adminpassword", "role": "Administrateur"}
         }
+
+
+# Appel de la fonction
+st.session_state.utilisateurs = charger_utilisateurs()
