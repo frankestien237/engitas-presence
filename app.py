@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import streamlit as st
 
@@ -62,13 +61,10 @@ if "utilisateurs" not in st.session_state:
     }
 
 # --- BARRE LATÉRALE ---
-if os.path.exists("logo_engitas.png"):
-    st.sidebar.image("logo_engitas.png", width="stretch")
-else:
-    st.sidebar.markdown(
-        "<h2 style='color: #00b4d8;'>ENGITAS</h2>", unsafe_allow_html=True
-    )
-
+st.sidebar.markdown(
+    "<h2 style='color: #00b4d8; text-align: center;'>ENGITAS</h2>",
+    unsafe_allow_html=True,
+)
 st.sidebar.markdown(
     "<p style='text-align: center; color: #a0a0a0; font-size: 14px;'>Système de Présence</p>",
     unsafe_allow_html=True,
