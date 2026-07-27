@@ -42,6 +42,56 @@ st.markdown(
         border-radius: 8px;
         border: 1px solid #30363d;
     }
+    .hero-container {
+        background: linear-gradient(135deg, rgba(14, 17, 23, 0.95) 0%, rgba(22, 27, 34, 0.95) 100%), 
+                    url('https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1920&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        padding: 40px;
+        border-radius: 12px;
+        border: 1px solid #30363d;
+        color: white;
+        margin-bottom: 25px;
+    }
+    .hero-title {
+        font-size: 36px;
+        font-weight: 800;
+        color: #ffffff;
+        line-height: 1.2;
+    }
+    .hero-highlight {
+        color: #00b4d8;
+    }
+    .hero-subtitle {
+        font-size: 15px;
+        color: #a0a0a0;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        max-width: 700px;
+    }
+    .card-grid {
+        display: flex;
+        gap: 15px;
+        margin-top: 15px;
+    }
+    .info-card {
+        background: rgba(22, 27, 34, 0.8);
+        border: 1px solid #30363d;
+        padding: 15px;
+        border-radius: 8px;
+        flex: 1;
+        text-align: center;
+    }
+    .info-card h3 {
+        color: #00b4d8;
+        margin: 0;
+        font-size: 20px;
+    }
+    .info-card p {
+        color: #c9d1d9;
+        font-size: 13px;
+        margin: 5px 0 0 0;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -134,21 +184,50 @@ else:
 
 # --- 1. CONNEXION ---
 if menu == "Connexion":
+    # Affichage de la bannière style ENGITAS sur la page d'accueil/connexion
+    st.markdown(
+        """
+        <div class="hero-container">
+            <div style="font-size: 12px; color: #00b4d8; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">
+                CLOUD & VIRTUALISATION • SÉCURITÉ
+            </div>
+            <div class="hero-title">
+                Solutions innovantes de <span class="hero-highlight">cloud & virtualisation</span>
+            </div>
+            <div class="hero-subtitle">
+                Accompagner les entreprises au Cameroun et en Afrique dans leur transformation numérique avec des solutions IT sur mesure — audit, cybersécurité, cloud et services managés.
+            </div>
+            
+            <div class="card-grid">
+                <div class="info-card">
+                    <h3>360°</h3>
+                    <p>Cybersécurité & Protection</p>
+                </div>
+                <div class="info-card">
+                    <h3>24/7</h3>
+                    <p>Infrastructure IT</p>
+                </div>
+                <div class="info-card">
+                    <h3>25+</h3>
+                    <p>Années d'expertise</p>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(
-            "<h1 style='text-align: center; color: #00b4d8;'>ENGITAS</h1>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<h3 style='text-align: center; color: #ffffff;'>🔐 Connexion</h3>",
+            "<h3 style='text-align: center; color: #ffffff;'>🔐 Espace de Connexion</h3>",
             unsafe_allow_html=True,
         )
 
         with st.form("form_connexion"):
             identifiant = st.text_input("Nom d'utilisateur")
             mdp = st.text_input("Mot de passe", type="password")
-            valider = st.form_submit_button("Se connecter", width="stretch")
+            valider = st.form_submit_button("Se connecter", use_container_width=True)
 
             if valider:
                 if identifiant in st.session_state.utilisateurs:
@@ -179,7 +258,7 @@ elif menu == "S'inscrire":
         with st.form("form_inscription"):
             nouveau_nom = st.text_input("Nom d'utilisateur")
             nouveau_mdp = st.text_input("Mot de passe", type="password")
-            valider_insc = st.form_submit_button("S'inscrire", width="stretch")
+            valider_insc = st.form_submit_button("S'inscrire", use_container_width=True)
 
             if valider_insc:
                 if nouveau_nom and nouveau_mdp:
@@ -204,7 +283,6 @@ elif menu == "Signer ma présence":
         unsafe_allow_html=True,
     )
 
-    # Affichage de l'horloge synchronisée de l'appareil client via JS
     components.html(
         """
         <div id="clock" style="color: #00b4d8; font-family: monospace; font-size: 16px; margin-bottom: 10px;"></div>
@@ -368,7 +446,6 @@ elif menu == "Pointer mon départ":
             heure_str = dt_depart.strftime("%H:%M:%S")
             enregistrement_actif["Heure_Depart"] = heure_str
             
-            # Calcul du temps de travail
             fmt = "%H:%M:%S"
             t_arrivee = datetime.strptime(enregistrement_actif["Heure_Arrivee"], fmt)
             t_depart = datetime.strptime(heure_str, fmt)
@@ -469,7 +546,7 @@ elif menu == "Tableau de bord Admin":
             )
 
             df_affiche_clean = df_affiche.drop(columns=["Heure_dt"], errors="ignore")
-            st.dataframe(df_affiche_clean, width="stretch")
+            st.dataframe(df_affiche_clean, use_container_width=True)
             
             csv_data = df_affiche_clean.to_csv(index=False).encode("utf-8")
             st.download_button(
@@ -491,7 +568,7 @@ elif menu == "Tableau de bord Admin":
                 df_abs_08 = pd.DataFrame(
                     {"Nom": absents_08h, "Date": date_auj, "Session": "08H", "Statut": "Absent(e)"}
                 )
-                st.dataframe(df_abs_08, width="stretch")
+                st.dataframe(df_abs_08, use_container_width=True)
             else:
                 st.success("🎉 Aucun absent à 08H !")
 
@@ -501,6 +578,6 @@ elif menu == "Tableau de bord Admin":
                 df_abs_16 = pd.DataFrame(
                     {"Nom": absents_16h, "Date": date_auj, "Session": "16H", "Statut": "Absent(e)"}
                 )
-                st.dataframe(df_abs_16, width="stretch")
+                st.dataframe(df_abs_16, use_container_width=True)
             else:
                 st.success("🎉 Aucun absent à 16H !")
