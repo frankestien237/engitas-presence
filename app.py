@@ -5,12 +5,12 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Configuration de la page et du thème visuel ENGITAS
+# Configuration de la page
 st.set_page_config(
     page_title="ENGITAS - Système de Présence", page_icon="🏢", layout="wide"
 )
 
-# --- INJECTION DE CSS PERSONNALISÉ (Thème Site Web ENGITAS) ---
+# --- STYLE CSS PERSONNALISÉ ---
 st.markdown(
     """
     <style>
@@ -19,31 +19,21 @@ st.markdown(
         font-family: 'Inter', sans-serif;
         color: #e2e8f0;
     }
-
-    /* Arrière-plan principal */
     [data-testid="stAppViewContainer"] {
         background-color: #0f172a;
     }
-
-    /* Barre latérale */
     [data-testid="stSidebar"] {
         background-color: #1e293b;
         border-right: 1px solid #334155;
     }
-
-    /* Titre sidebar */
     h2 {
         color: #00b4d8 !important;
         font-weight: 700 !important;
     }
-
-    /* Titres principaux */
     h1, h3 {
         color: #f8fafc !important;
         font-weight: 700 !important;
     }
-
-    /* Conteneur du formulaire avec effet de verre flouté */
     [data-testid="stForm"] {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(10px);
@@ -51,21 +41,15 @@ st.markdown(
         border-radius: 12px;
         padding: 2rem !important;
     }
-
-    /* Labels */
     label p {
         color: #94a3b8 !important;
         font-weight: 600;
     }
-
-    /* Champs de saisie */
     [data-testid="stTextInput"] > div > div {
         background-color: #0f172a !important;
         border: 1px solid #475569 !important;
         color: #f8fafc !important;
     }
-
-    /* Boutons personnalisés (Bleu turquoise ENGITAS) */
     div.stButton > button {
         background-color: #00b4d8 !important;
         color: #ffffff !important;
@@ -78,22 +62,38 @@ st.markdown(
     div.stButton > button:hover {
         background-color: #0369a1 !important;
     }
-
     footer {visibility: hidden;}
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Coordonnées géographiques exactes du bureau ENGITAS
-LAT_BUREAU = 4.0511  # Latitude des bureaux ENGITAS
-LON_BUREAU = 9.7679  # Longitude des bureaux ENGITAS
-RAYON_AUTORISE_KM = (
-    0.2  # 200 mètres de tolérance autour de l'entreprise (anti-triche)
+# --- EN-TÊTE VISUEL STYLE SITE WEB ENGITAS ---
+st.markdown(
+    """
+    <div style="display: flex; align-items: center; justify-content: space-between; background-color: #0f172a; padding: 10px 20px; border-bottom: 1px solid #1e293b; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="color: #00b4d8; font-weight: bold; font-size: 20px;">🌐 ENGITAS</span>
+            <span style="background-color: #00b4d8; color: white; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">Accueil</span>
+            <span style="color: #94a3b8; font-size: 14px;">Services</span>
+            <span style="color: #94a3b8; font-size: 14px;">Références</span>
+            <span style="color: #94a3b8; font-size: 14px;">Formations</span>
+            <span style="color: #94a3b8; font-size: 14px;">Contact</span>
+        </div>
+        <div>
+            <span style="background-color: #00b4d8; color: white; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold;">Demander un devis</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
+# Coordonnées géographiques exactes du bureau ENGITAS
+LAT_BUREAU = 4.0511
+LON_BUREAU = 9.7679
+RAYON_AUTORISE_KM = 0.2
 
-# --- FONCTIONS DE GESTION DES FICHIERS & BACKUP ---
+
 def charger_donnees(nom_fichier, valeur_defaut):
     if not os.path.exists(nom_fichier) or os.path.getsize(nom_fichier) == 0:
         return valeur_defaut
@@ -112,7 +112,6 @@ def sauvegarder_donnees(nom_fichier, donnees):
         json.dump(donnees, f, ensure_ascii=False, indent=4)
 
 
-# Initialisation des données avec Backup JSON
 if "utilisateurs" not in st.session_state:
     st.session_state.utilisateurs = charger_donnees(
         "utilisateurs.json",
@@ -127,7 +126,6 @@ if "utilisateurs" not in st.session_state:
 
 if "presences" not in st.session_state:
     st.session_state.presences = charger_donnees("presences.json", [])
-
 
 # --- BARRE LATÉRALE ---
 st.sidebar.markdown(
@@ -158,7 +156,6 @@ if "user_connecte" in st.session_state:
         st.rerun()
 else:
     menu = st.sidebar.radio("Navigation", ["Connexion", "S'inscrire"])
-
 
 # --- 1. CONNEXION ---
 if menu == "Connexion":
@@ -205,46 +202,39 @@ elif menu == "S'inscrire":
                 )
                 st.success("Compte créé avec succès ! Vous pouvez vous connecter.")
 
-# --- 3. SIGNER MA PRÉSENCE (GPS Réel & Anti-Triche) ---
+# --- 3. SIGNER MA PRÉSENCE ---
 elif menu == "Signer ma présence":
     st.markdown("### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée)")
     st.info(
-        "Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation. Le système vérifiera que vous êtes bien physiquement dans l'entreprise."
+        "Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation."
     )
 
     localisation_js = """
     <div id="geo-status" style="color: #cbd5e1; margin-bottom: 10px;">📍 En attente de votre position GPS...</div>
     <button onclick="getLocation()" style="background-color: #00b4d8; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Obtenir ma position GPS</button>
-
     <script>
     function getLocation() {
         const status = document.getElementById('geo-status');
         if (!navigator.geolocation) {
-            status.innerHTML = "❌ La géolocalisation n'est pas supportée par votre navigateur.";
+            status.innerHTML = "❌ Non supporté.";
             return;
         }
-        status.innerHTML = "📍 Localisation en cours...";
         navigator.geolocation.getCurrentPosition(success, error, {enableHighAccuracy: true});
     }
-
     function success(position) {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
-        document.getElementById('geo-status').innerHTML = `✅ Position trouvée ! Latitude: ${latitude.toFixed(4)}, Longitude: ${longitude.toFixed(4)}. Vous pouvez valider ci-dessous.`;
+        document.getElementById('geo-status').innerHTML = `✅ Position trouvée !`;
         window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: latitude, lon: longitude}}, '*');
     }
-
     function error() {
-        document.getElementById('geo-status').innerHTML = "❌ Impossible de récupérer votre position. Activez le GPS de votre appareil.";
+        document.getElementById('geo-status').innerHTML = "❌ Erreur GPS.";
     }
     </script>
     """
     components.html(localisation_js, height=100)
 
     with st.form("form_valider_arrivee"):
-        st.markdown(
-            "*(Si les coordonnées GPS s'affirment ci-dessus, cliquez pour valider)*"
-        )
         lat_saisie = st.number_input(
             "Votre Latitude GPS", value=LAT_BUREAU, format="%.6f"
         )
@@ -273,17 +263,13 @@ elif menu == "Signer ma présence":
             if distance <= RAYON_AUTORISE_KM:
                 date_jour = datetime.now().strftime("%Y-%m-%d")
                 heure_arrivee = datetime.now().strftime("%H:%M:%S")
-
                 deja_pointe = any(
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
                     for p in st.session_state.presences
                 )
-
                 if deja_pointe:
-                    st.warning(
-                        "Vous avez déjà enregistré votre arrivée aujourd'hui !"
-                    )
+                    st.warning("Vous avez déjà pointé aujourd'hui !")
                 else:
                     nouvelle_presence = {
                         "employe": st.session_state.user_connecte,
@@ -297,22 +283,18 @@ elif menu == "Signer ma présence":
                     sauvegarder_donnees(
                         "presences.json", st.session_state.presences
                     )
-                    st.success(
-                        f"✅ Arrivée validée à {heure_arrivee} (Distance du site : {distance*1000:.0f}m)."
-                    )
+                    st.success(f"✅ Arrivée validée à {heure_arrivee}")
             else:
                 st.error(
-                    f"🚨 ACCÈS REFUSÉ : Vous êtes situé à {distance*1000:.0f} mètres du bureau. Le pointage hors de l'entreprise est interdit."
+                    f"🚨 ACCÈS REFUSÉ : Vous êtes à {distance*1000:.0f} mètres du bureau."
                 )
 
 # --- 4. POINTER MON DÉPART ---
 elif menu == "Pointer mon départ":
     st.markdown("### 🚪 Pointer mon Départ")
     date_jour = datetime.now().strftime("%Y-%m-%d")
-
     with st.form("form_depart"):
         submit_depart = st.form_submit_button("Enregistrer mon départ")
-
         if submit_depart:
             trouve = False
             for p in st.session_state.presences:
@@ -323,46 +305,34 @@ elif menu == "Pointer mon départ":
                     if p["depart"] == "En cours":
                         heure_depart = datetime.now().strftime("%H:%M:%S")
                         p["depart"] = heure_depart
-
-                        fmt = "%H:%M:%S"
-                        t_arrivee = datetime.strptime(p["arrivee"], fmt)
-                        t_depart = datetime.strptime(heure_depart, fmt)
+                        t_arrivee = datetime.strptime(p["arrivee"], "%H:%M:%S")
+                        t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
                         duree = t_depart - t_arrivee
-
                         p["temps_travail"] = str(duree)
-
                         sauvegarder_donnees(
                             "presences.json", st.session_state.presences
                         )
-                        st.success(
-                            f"✅ Départ enregistré à {heure_depart} ! Durée totale passée en entreprise : **{duree}**"
-                        )
+                        st.success(f"✅ Départ enregistré : **{duree}**")
                         trouve = True
                     else:
-                        st.info(
-                            "Vous avez déjà pointé votre départ aujourd'hui."
-                        )
+                        st.info("Départ déjà pointé.")
                         trouve = True
                     break
             if not trouve:
-                st.warning(
-                    "Aucune arrivée enregistrée pour aujourd'hui. Veuillez d'abord signer votre présence."
-                )
+                st.warning("Aucune arrivée enregistrée aujourd'hui.")
 
-# --- 5. TABLEAU DE BORD ADMIN & HISTORIQUE ---
+# --- 5. TABLEAU DE BORD ADMIN ---
 elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
-    st.markdown("### 📊 Tableau de bord Administrateur - Suivi & Temps de Travail")
-
+    st.markdown("### 📊 Tableau de bord Administrateur")
     if st.session_state.presences:
         df_presences = pd.DataFrame(st.session_state.presences)
         st.dataframe(df_presences, use_container_width=True)
-
         csv = df_presences.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Télécharger le Backup et l'historique complet (CSV)",
+            label="📥 Télécharger l'historique complet (CSV)",
             data=csv,
-            file_name=f"backup_presences_engitas_{datetime.now().strftime('%Y-%m-%d')}.csv",
+            file_name=f"backup_presences_{datetime.now().strftime('%Y-%m-%d')}.csv",
             mime="text/csv",
         )
     else:
-        st.info("Aucun historique de présence enregistré pour le moment.")
+        st.info("Aucun historique pour le moment.")
