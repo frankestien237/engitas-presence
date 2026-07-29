@@ -1,18 +1,93 @@
+from datetime import datetime
 import json
 import os
-from datetime import datetime
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Configuration de la page
+# Configuration de la page et du thème visuel ENGITAS
 st.set_page_config(
     page_title="ENGITAS - Système de Présence", page_icon="🏢", layout="wide"
 )
 
-# Coordonnées géographiques exactes du bureau ENGITAS (À modifier avec tes vraies coordonnées GPS)
-LAT_BUREAU = 4.0511  # Exemple : Douala
-LON_BUREAU = 9.7679
+# --- INJECTION DE CSS PERSONNALISÉ (Thème Site Web ENGITAS) ---
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    html, body, [class*="st-"] {
+        font-family: 'Inter', sans-serif;
+        color: #e2e8f0;
+    }
+
+    /* Arrière-plan principal */
+    [data-testid="stAppViewContainer"] {
+        background-color: #0f172a;
+    }
+
+    /* Barre latérale */
+    [data-testid="stSidebar"] {
+        background-color: #1e293b;
+        border-right: 1px solid #334155;
+    }
+
+    /* Titre sidebar */
+    h2 {
+        color: #00b4d8 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Titres principaux */
+    h1, h3 {
+        color: #f8fafc !important;
+        font-weight: 700 !important;
+    }
+
+    /* Conteneur du formulaire avec effet de verre flouté */
+    [data-testid="stForm"] {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 12px;
+        padding: 2rem !important;
+    }
+
+    /* Labels */
+    label p {
+        color: #94a3b8 !important;
+        font-weight: 600;
+    }
+
+    /* Champs de saisie */
+    [data-testid="stTextInput"] > div > div {
+        background-color: #0f172a !important;
+        border: 1px solid #475569 !important;
+        color: #f8fafc !important;
+    }
+
+    /* Boutons personnalisés (Bleu turquoise ENGITAS) */
+    div.stButton > button {
+        background-color: #00b4d8 !important;
+        color: #ffffff !important;
+        border: none !important;
+        font-weight: 700 !important;
+        padding: 0.75rem 1.5rem !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background-color: #0369a1 !important;
+    }
+
+    footer {visibility: hidden;}
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Coordonnées géographiques exactes du bureau ENGITAS
+LAT_BUREAU = 4.0511  # Latitude des bureaux ENGITAS
+LON_BUREAU = 9.7679  # Longitude des bureaux ENGITAS
 RAYON_AUTORISE_KM = (
     0.2  # 200 mètres de tolérance autour de l'entreprise (anti-triche)
 )
@@ -137,10 +212,9 @@ elif menu == "Signer ma présence":
         "Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation. Le système vérifiera que vous êtes bien physiquement dans l'entreprise."
     )
 
-    # Code JavaScript pour récupérer le GPS réel de l'appareil de l'employé
     localisation_js = """
-    <div id="geo-status">📍 En attente de votre position GPS...</div>
-    <button onclick="getLocation()" style="background-color: #00b4d8; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Obtenir ma position GPS</button>
+    <div id="geo-status" style="color: #cbd5e1; margin-bottom: 10px;">📍 En attente de votre position GPS...</div>
+    <button onclick="getLocation()" style="background-color: #00b4d8; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Obtenir ma position GPS</button>
 
     <script>
     function getLocation() {
@@ -157,8 +231,6 @@ elif menu == "Signer ma présence":
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
         document.getElementById('geo-status').innerHTML = `✅ Position trouvée ! Latitude: ${latitude.toFixed(4)}, Longitude: ${longitude.toFixed(4)}. Vous pouvez valider ci-dessous.`;
-        
-        // Envoi des coordonnées vers Streamlit via des champs cachés ou stockage session
         window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: latitude, lon: longitude}}, '*');
     }
 
@@ -173,7 +245,6 @@ elif menu == "Signer ma présence":
         st.markdown(
             "*(Si les coordonnées GPS s'affirment ci-dessus, cliquez pour valider)*"
         )
-        # Simulation de récupération des coordonnées saisies ou par défaut pour éviter le blocage si le composant met du temps
         lat_saisie = st.number_input(
             "Votre Latitude GPS", value=LAT_BUREAU, format="%.6f"
         )
@@ -186,7 +257,7 @@ elif menu == "Signer ma présence":
             from math import asin, cos, radians, sin, sqrt
 
             def calculer_distance(lat1, lon1, lat2, lon2):
-                R = 6371  # Rayon de la terre en km
+                R = 6371
                 dlat = radians(lat2 - lat1)
                 dlon = radians(lon2 - lon1)
                 a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(
@@ -253,13 +324,11 @@ elif menu == "Pointer mon départ":
                         heure_depart = datetime.now().strftime("%H:%M:%S")
                         p["depart"] = heure_depart
 
-                        # Calcul précis du temps passé en entreprise
                         fmt = "%H:%M:%S"
                         t_arrivee = datetime.strptime(p["arrivee"], fmt)
                         t_depart = datetime.strptime(heure_depart, fmt)
                         duree = t_depart - t_arrivee
 
-                        # Formatage propre de la durée (heures, minutes, secondes)
                         p["temps_travail"] = str(duree)
 
                         sauvegarder_donnees(
@@ -270,7 +339,9 @@ elif menu == "Pointer mon départ":
                         )
                         trouve = True
                     else:
-                        st.info("Vous avez déjà pointé votre départ aujourd'hui.")
+                        st.info(
+                            "Vous avez déjà pointé votre départ aujourd'hui."
+                        )
                         trouve = True
                     break
             if not trouve:
@@ -286,7 +357,6 @@ elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
         df_presences = pd.DataFrame(st.session_state.presences)
         st.dataframe(df_presences, use_container_width=True)
 
-        # Bouton de téléchargement du Backup / Historique en CSV
         csv = df_presences.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="📥 Télécharger le Backup et l'historique complet (CSV)",
