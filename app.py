@@ -71,7 +71,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- EN-TÊTE VISUEL STYLE SITE WEB ENGITAS (Fixe et permanent) ---
+# --- EN-TÊTE VISUEL STYLE SITE WEB ENGITAS ---
 st.markdown(
     """
     <div style="display: flex; align-items: center; justify-content: space-between; background-color: #0f172a; padding: 10px 20px; border-bottom: 1px solid #1e293b; margin-bottom: 20px;">
@@ -91,14 +91,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Coordonnées géographiques exactes du bureau ENGITAS
 LAT_BUREAU = 4.0511
 LON_BUREAU = 9.7679
 RAYON_AUTORISE_KM = 0.2
 HEURE_LIMITE_ARRIVEE = time(9, 0, 0)
-HEURE_STANDARD_TRAVAIL_HOURS = (
-    8.0  # Nombre d'heures normales de travail par jour
-)
+HEURE_STANDARD_TRAVAIL_HOURS = 8.0
 
 
 def charger_donnees(nom_fichier, valeur_defaut):
@@ -132,7 +129,16 @@ if "utilisateurs" not in st.session_state:
     )
 
 if "presences" not in st.session_state:
-    st.session_state.presences = charger_donnees("presences.json", [])
+    raw_presences = charger_donnees("presences.json", [])
+    # Correction automatique des anciennes données (migration)
+    for p in raw_presences:
+        if "depart_pause" not in p:
+            p["depart_pause"] = "Non pointé"
+        if "retour_pause" not in p:
+            p["retour_pause"] = "Non pointé"
+        if "heures_supplementaires" not in p:
+            p["heures_supplementaires"] = "0h 00m"
+    st.session_state.presences = raw_presences
 
 # --- BARRE LATÉRALE ---
 st.sidebar.markdown(
@@ -332,7 +338,7 @@ elif menu == "Départ Pause (12h)":
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
                 ):
-                    if p["depart_pause"] == "Non pointé":
+                    if p.get("depart_pause", "Non pointé") == "Non pointé":
                         heure_dp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
                         p["depart_pause"] = heure_dp
                         sauvegarder_donnees(
@@ -361,8 +367,8 @@ elif menu == "Retour Pause (13h)":
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
                 ):
-                    if p["depart_pause"] != "Non pointé":
-                        if p["retour_pause"] == "Non pointé":
+                    if p.get("depart_pause", "Non pointé") != "Non pointé":
+                        if p.get("retour_pause", "Non pointé") == "Non pointé":
                             heure_rp = datetime.now(TZ_LOCAL).strftime(
                                 "%H:%M:%S"
                             )
@@ -406,28 +412,19 @@ elif menu == "Pointer mon départ":
                         )
                         p["depart"] = heure_depart
 
-                        # Calcul du temps de travail effectif (indépendant de l'heure d'arrivée matinale théorique)
                         t_arrivee = datetime.strptime(p["arrivee"], "%H:%M:%S")
                         t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
 
-                        # Durée brute totale entre arrivée et départ
                         duree_brute = t_depart - t_arrivee
 
-                        # Gestion de la soustraction de la pause si elle a été faite
                         duree_pause = timedelta(0)
-                        if (
-                            p["depart_pause"] != "Non pointé"
-                            and p["retour_pause"] != "Non pointé"
-                        ):
-                            t_dp = datetime.strptime(
-                                p["depart_pause"], "%H:%M:%S"
-                            )
-                            t_rp = datetime.strptime(
-                                p["retour_pause"], "%H:%M:%S"
-                            )
+                        dp = p.get("depart_pause", "Non pointé")
+                        rp = p.get("retour_pause", "Non pointé")
+                        if dp != "Non pointé" and rp != "Non pointé":
+                            t_dp = datetime.strptime(dp, "%H:%M:%S")
+                            t_rp = datetime.strptime(rp, "%H:%M:%S")
                             duree_pause = t_rp - t_dp
 
-                        # Temps de travail effectif réel
                         temps_effectif = duree_brute - duree_pause
                         if temps_effectif.total_seconds() < 0:
                             temps_effectif = timedelta(0)
@@ -436,7 +433,6 @@ elif menu == "Pointer mon départ":
                             timedelta(seconds=int(temps_effectif.total_seconds()))
                         )
 
-                        # Calcul des heures supplémentaires journalières (au-delà de 8h effectives)
                         secondes_travaillees = temps_effectif.total_seconds()
                         secondes_standard = HEURE_STANDARD_TRAVAIL_HOURS * 3600
 
@@ -464,7 +460,7 @@ elif menu == "Pointer mon départ":
             if not trouve:
                 st.warning("Aucune arrivée enregistrée aujourd'hui.")
 
-# --- 7. TABLEAU DE BORD ADMIN (SUIVI LUNDI -> VENDREDI) ---
+# --- 7. TABLEAU DE BORD ADMIN ---
 elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
     st.markdown(
         "### 📊 Tableau de bord Administrateur - Suivi Hebdomadaire (Lundi au Vendredi)"
