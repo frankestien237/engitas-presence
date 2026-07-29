@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="ENGITAS - Système de Présence", page_icon="🏢", layout="wide"
 )
 
-# Fuseau horaire local (ex: UTC+1 pour l'Afrique Centrale / Cameroun)
+# Fuseau horaire local (UTC+1)
 TZ_LOCAL = timezone(timedelta(hours=1))
 
 # --- STYLE CSS PERSONNALISÉ ---
@@ -71,7 +71,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- EN-TÊTE VISUEL STYLE SITE WEB ENGITAS ---
+# --- EN-TÊTE VISUEL STYLE SITE WEB ENGITAS (Fixe et permanent) ---
 st.markdown(
     """
     <div style="display: flex; align-items: center; justify-content: space-between; background-color: #0f172a; padding: 10px 20px; border-bottom: 1px solid #1e293b; margin-bottom: 20px;">
@@ -178,9 +178,7 @@ if menu == "Connexion":
                 st.success("Connexion réussie !")
                 st.rerun()
             else:
-                st.error(
-                    "Nom d'utilisateur ou mot de passe incorrect.", icon="⚠️"
-                )
+                st.error("Nom d'utilisateur ou mot de passe incorrect.")
 
 # --- 2. S'INSCRIRE ---
 elif menu == "S'inscrire":
@@ -203,14 +201,12 @@ elif menu == "S'inscrire":
                 sauvegarder_donnees(
                     "utilisateurs.json", st.session_state.utilisateurs
                 )
-                st.success("Compte créé avec succès ! Vous pouvez vous connecter.")
+                st.success("Compte créé avec succès !")
 
 # --- 3. SIGNER MA PRÉSENCE ---
 elif menu == "Signer ma présence":
     st.markdown("### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée)")
-    st.info(
-        "Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation."
-    )
+    st.info("Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation.")
 
     localisation_js = """
     <div id="geo-status" style="color: #cbd5e1; margin-bottom: 10px;">📍 En attente de votre position GPS...</div>
@@ -328,18 +324,73 @@ elif menu == "Pointer mon départ":
             if not trouve:
                 st.warning("Aucune arrivée enregistrée aujourd'hui.")
 
-# --- 5. TABLEAU DE BORD ADMIN ---
+# --- 5. TABLEAU DE BORD ADMIN (SUIVI LUNDI -> VENDREDI BASÉ SUR LES INSCRITS) ---
 elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
-    st.markdown("### 📊 Tableau de bord Administrateur")
-    if st.session_state.presences:
-        df_presences = pd.DataFrame(st.session_state.presences)
-        st.dataframe(df_presences, use_container_width=True)
-        csv = df_presences.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Télécharger l'historique complet (CSV)",
-            data=csv,
-            file_name=f"backup_presences_{datetime.now(TZ_LOCAL).strftime('%Y-%m-%d')}.csv",
-            mime="text/csv",
+    st.markdown(
+        "### 📊 Tableau de bord Administrateur - Suivi Hebdomadaire (Lundi au Vendredi)"
+    )
+
+    # Récupérer la liste de tous les employés inscrits (rôle "Employé")
+    employes_inscrits = [
+        username
+        for username, data in st.session_state.utilisateurs.items()
+        if data.get("role") == "Employé"
+    ]
+
+    if not employes_inscrits:
+        # S'il n'y a pas encore de compte avec le rôle 'Employé' explicite, on prend tous les utilisateurs sauf admin
+        employes_inscrits = [
+            u for u in st.session_state.utilisateurs.keys() if u != "admin"
+        ]
+
+    if employes_inscrits:
+        auj = datetime.now(TZ_LOCAL).date()
+        debut_semaine = auj - timedelta(days=auj.weekday())
+
+        jours_ouvrables = [
+            (debut_semaine + timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(5)
+        ]
+        noms_jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"]
+
+        recap_data = []
+        for emp in employes_inscrits:
+            ligne = {"Employé": emp}
+            for idx, jour in enumerate(jours_ouvrables):
+                nom_col = f"{noms_jours[idx]} ({jour})"
+                # Vérifie si l'employé a un pointage enregistré pour ce jour exact
+                pointe = any(
+                    p["employe"] == emp and p["date"] == jour
+                    for p in st.session_state.presences
+                )
+                if jour > auj.strftime("%Y-%m-%d"):
+                    ligne[nom_col] = "⏳ À venir"
+                else:
+                    ligne[nom_col] = (
+                        "✅ Présent" if pointe else "❌ Absent (Manqué)"
+                    )
+            recap_data.append(ligne)
+
+        st.markdown(
+            "#### Grille des présences de la semaine (Lundi - Vendredi) - Tous les employés"
         )
+        df_recap = pd.DataFrame(recap_data)
+        st.dataframe(df_recap, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("#### Historique brut des pointages")
+        if st.session_state.presences:
+            df_presences = pd.DataFrame(st.session_state.presences)
+            st.dataframe(df_presences, use_container_width=True)
+
+            csv = df_presences.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Télécharger l'historique complet (CSV)",
+                data=csv,
+                file_name=f"backup_presences_{datetime.now(TZ_LOCAL).strftime('%Y-%m-%d')}.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info("Aucun pointage enregistré pour l'instant.")
     else:
-        st.info("Aucun historique pour le moment.")
+        st.info("Aucun employé inscrit pour le moment.")
