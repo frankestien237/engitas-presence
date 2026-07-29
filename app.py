@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 import json
 import os
 import pandas as pd
@@ -95,6 +95,7 @@ st.markdown(
 LAT_BUREAU = 4.0511
 LON_BUREAU = 9.7679
 RAYON_AUTORISE_KM = 0.2
+HEURE_LIMITE_ARRIVEE = time(9, 0, 0)  # 09:00:00 maximum pour pointer
 
 
 def charger_donnees(nom_fichier, valeur_defaut):
@@ -210,91 +211,110 @@ elif menu == "S'inscrire":
 
 # --- 3. SIGNER MA PRÉSENCE ---
 elif menu == "Signer ma présence":
-    st.markdown("### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée)")
-    st.info("Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation.")
+    st.markdown(
+        "### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée & Limite 9h00)"
+    )
 
-    localisation_js = """
-    <div id="geo-status" style="color: #cbd5e1; margin-bottom: 10px;">📍 En attente de votre position GPS...</div>
-    <button onclick="getLocation()" style="background-color: #00b4d8; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Obtenir ma position GPS</button>
-    <script>
-    function getLocation() {
-        const status = document.getElementById('geo-status');
-        if (!navigator.geolocation) {
-            status.innerHTML = "❌ Non supporté.";
-            return;
+    # Vérification immédiate de l'heure actuelle par rapport à 9h00
+    maintenant_dt = datetime.now(TZ_LOCAL)
+    if maintenant_dt.time() > HEURE_LIMITE_ARRIVEE:
+        st.error(
+            "⏳ **POINTAGE FERMÉ :** Il est plus de 09h00. Le pointage des arrivées n'est plus autorisé pour aujourd'hui."
+        )
+    else:
+        st.info(
+            "Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation."
+        )
+
+        localisation_js = """
+        <div id="geo-status" style="color: #cbd5e1; margin-bottom: 10px;">📍 En attente de votre position GPS...</div>
+        <button onclick="getLocation()" style="background-color: #00b4d8; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Obtenir ma position GPS</button>
+        <script>
+        function getLocation() {
+            const status = document.getElementById('geo-status');
+            if (!navigator.geolocation) {
+                status.innerHTML = "❌ Non supporté.";
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(success, error, {enableHighAccuracy: true});
         }
-        navigator.geolocation.getCurrentPosition(success, error, {enableHighAccuracy: true});
-    }
-    function success(position) {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        document.getElementById('geo-status').innerHTML = `✅ Position trouvée !`;
-        window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: latitude, lon: longitude}}, '*');
-    }
-    function error() {
-        document.getElementById('geo-status').innerHTML = "❌ Erreur GPS.";
-    }
-    </script>
-    """
-    components.html(localisation_js, height=100)
+        function success(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            document.getElementById('geo-status').innerHTML = `✅ Position trouvée !`;
+            window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: latitude, lon: longitude}}, '*');
+        }
+        function error() {
+            document.getElementById('geo-status').innerHTML = "❌ Erreur GPS.";
+        }
+        </script>
+        """
+        components.html(localisation_js, height=100)
 
-    with st.form("form_valider_arrivee"):
-        lat_saisie = st.number_input(
-            "Votre Latitude GPS", value=LAT_BUREAU, format="%.6f"
-        )
-        lon_saisie = st.number_input(
-            "Votre Longitude GPS", value=LON_BUREAU, format="%.6f"
-        )
-        valider = st.form_submit_button("Valider mon arrivée officielle")
-
-        if valider:
-            from math import asin, cos, radians, sin, sqrt
-
-            def calculer_distance(lat1, lon1, lat2, lon2):
-                R = 6371
-                dlat = radians(lat2 - lat1)
-                dlon = radians(lon2 - lon1)
-                a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(
-                    radians(lat2)
-                ) * sin(dlon / 2) ** 2
-                c = 2 * asin(sqrt(a))
-                return R * c
-
-            distance = calculer_distance(
-                lat_saisie, lon_saisie, LAT_BUREAU, LON_BUREAU
+        with st.form("form_valider_arrivee"):
+            lat_saisie = st.number_input(
+                "Votre Latitude GPS", value=LAT_BUREAU, format="%.6f"
             )
+            lon_saisie = st.number_input(
+                "Votre Longitude GPS", value=LON_BUREAU, format="%.6f"
+            )
+            valider = st.form_submit_button("Valider mon arrivée officielle")
 
-            if distance <= RAYON_AUTORISE_KM:
-                date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
-                heure_arrivee = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
-
-                deja_pointe = any(
-                    p["employe"] == st.session_state.user_connecte
-                    and p["date"] == date_jour
-                    for p in st.session_state.presences
-                )
-                if deja_pointe:
-                    st.warning("Vous avez déjà pointé aujourd'hui !")
-                else:
-                    nouvelle_presence = {
-                        "employe": st.session_state.user_connecte,
-                        "date": date_jour,
-                        "arrivee": heure_arrivee,
-                        "depart_pause": "Non pointé",
-                        "retour_pause": "Non pointé",
-                        "depart": "En cours",
-                        "temps_travail": "En cours",
-                        "statut": "Présent",
-                    }
-                    st.session_state.presences.append(nouvelle_presence)
-                    sauvegarder_donnees(
-                        "presences.json", st.session_state.presences
+            if valider:
+                # Double vérification au moment de la soumission du formulaire
+                moment_validation = datetime.now(TZ_LOCAL)
+                if moment_validation.time() > HEURE_LIMITE_ARRIVEE:
+                    st.error(
+                        "🚨 **DÉLAI DÉPASSÉ :** Il est maintenant plus de 09h00. Pointage refusé."
                     )
-                    st.success(f"✅ Arrivée validée à {heure_arrivee}")
-            else:
-                st.error(
-                    f"🚨 ACCÈS REFUSÉ : Vous êtes à {distance*1000:.0f} mètres du bureau."
-                )
+                else:
+                    from math import asin, cos, radians, sin, sqrt
+
+                    def calculer_distance(lat1, lon1, lat2, lon2):
+                        R = 6371
+                        dlat = radians(lat2 - lat1)
+                        dlon = radians(lon2 - lon1)
+                        a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(
+                            radians(lat2)
+                        ) * sin(dlon / 2) ** 2
+                        c = 2 * asin(sqrt(a))
+                        return R * c
+
+                    distance = calculer_distance(
+                        lat_saisie, lon_saisie, LAT_BUREAU, LON_BUREAU
+                    )
+
+                    if distance <= RAYON_AUTORISE_KM:
+                        date_jour = moment_validation.strftime("%Y-%m-%d")
+                        heure_arrivee = moment_validation.strftime("%H:%M:%S")
+
+                        deja_pointe = any(
+                            p["employe"] == st.session_state.user_connecte
+                            and p["date"] == date_jour
+                            for p in st.session_state.presences
+                        )
+                        if deja_pointe:
+                            st.warning("Vous avez déjà pointé aujourd'hui !")
+                        else:
+                            nouvelle_presence = {
+                                "employe": st.session_state.user_connecte,
+                                "date": date_jour,
+                                "arrivee": heure_arrivee,
+                                "depart_pause": "Non pointé",
+                                "retour_pause": "Non pointé",
+                                "depart": "En cours",
+                                "temps_travail": "En cours",
+                                "statut": "Présent",
+                            }
+                            st.session_state.presences.append(nouvelle_presence)
+                            sauvegarder_donnees(
+                                "presences.json", st.session_state.presences
+                            )
+                            st.success(f"✅ Arrivée validée à {heure_arrivee}")
+                    else:
+                        st.error(
+                            f"🚨 ACCÈS REFUSÉ : Vous êtes à {distance*1000:.0f} mètres du bureau."
+                        )
 
 # --- 4. DÉPART PAUSE (12h) ---
 elif menu == "Départ Pause (12h)":
