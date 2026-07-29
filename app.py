@@ -147,7 +147,12 @@ if "user_connecte" in st.session_state:
         "role"
     ]
 
-    options_menu = ["Signer ma présence", "Pointer mon départ"]
+    options_menu = [
+        "Signer ma présence",
+        "Départ Pause (12h)",
+        "Retour Pause (13h)",
+        "Pointer mon départ",
+    ]
     if role_actuel == "Administrateur":
         options_menu.append("Tableau de bord Admin")
 
@@ -275,6 +280,8 @@ elif menu == "Signer ma présence":
                         "employe": st.session_state.user_connecte,
                         "date": date_jour,
                         "arrivee": heure_arrivee,
+                        "depart_pause": "Non pointé",
+                        "retour_pause": "Non pointé",
                         "depart": "En cours",
                         "temps_travail": "En cours",
                         "statut": "Présent",
@@ -289,9 +296,77 @@ elif menu == "Signer ma présence":
                     f"🚨 ACCÈS REFUSÉ : Vous êtes à {distance*1000:.0f} mètres du bureau."
                 )
 
-# --- 4. POINTER MON DÉPART ---
+# --- 4. DÉPART PAUSE (12h) ---
+elif menu == "Départ Pause (12h)":
+    st.markdown("### 🍔 Pointer mon Départ en Pause (12h00)")
+    date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
+
+    with st.form("form_depart_pause"):
+        submit_dp = st.form_submit_button("Enregistrer mon départ en pause")
+        if submit_dp:
+            trouve = False
+            for p in st.session_state.presences:
+                if (
+                    p["employe"] == st.session_state.user_connecte
+                    and p["date"] == date_jour
+                ):
+                    if p["depart_pause"] == "Non pointé":
+                        heure_dp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
+                        p["depart_pause"] = heure_dp
+                        sauvegarder_donnees(
+                            "presences.json", st.session_state.presences
+                        )
+                        st.success(f"✅ Départ en pause enregistré à {heure_dp}")
+                        trouve = True
+                    else:
+                        st.info("Vous avez déjà pointé votre départ en pause.")
+                        trouve = True
+                    break
+            if not trouve:
+                st.warning("Aucune arrivée enregistrée aujourd'hui.")
+
+# --- 5. RETOUR PAUSE (13h) ---
+elif menu == "Retour Pause (13h)":
+    st.markdown("### 💼 Pointer mon Retour de Pause (13h00)")
+    date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
+
+    with st.form("form_retour_pause"):
+        submit_rp = st.form_submit_button("Enregistrer mon retour de pause")
+        if submit_rp:
+            trouve = False
+            for p in st.session_state.presences:
+                if (
+                    p["employe"] == st.session_state.user_connecte
+                    and p["date"] == date_jour
+                ):
+                    if p["depart_pause"] != "Non pointé":
+                        if p["retour_pause"] == "Non pointé":
+                            heure_rp = datetime.now(TZ_LOCAL).strftime(
+                                "%H:%M:%S"
+                            )
+                            p["retour_pause"] = heure_rp
+                            sauvegarder_donnees(
+                                "presences.json", st.session_state.presences
+                            )
+                            st.success(
+                                f"✅ Retour de pause enregistré à {heure_rp}"
+                            )
+                            trouve = True
+                        else:
+                            st.info("Vous avez déjà pointé votre retour de pause.")
+                            trouve = True
+                    else:
+                        st.warning(
+                            "Vous devez d'abord pointer votre départ en pause !"
+                        )
+                        trouve = True
+                    break
+            if not trouve:
+                st.warning("Aucune arrivée enregistrée aujourd'hui.")
+
+# --- 6. POINTER MON DÉPART ---
 elif menu == "Pointer mon départ":
-    st.markdown("### 🚪 Pointer mon Départ")
+    st.markdown("### 🚪 Pointer mon Départ de fin de journée")
     date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
 
     with st.form("form_depart"):
@@ -324,13 +399,12 @@ elif menu == "Pointer mon départ":
             if not trouve:
                 st.warning("Aucune arrivée enregistrée aujourd'hui.")
 
-# --- 5. TABLEAU DE BORD ADMIN (SUIVI LUNDI -> VENDREDI BASÉ SUR LES INSCRITS) ---
+# --- 7. TABLEAU DE BORD ADMIN (SUIVI LUNDI -> VENDREDI) ---
 elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
     st.markdown(
         "### 📊 Tableau de bord Administrateur - Suivi Hebdomadaire (Lundi au Vendredi)"
     )
 
-    # Récupérer la liste de tous les employés inscrits (rôle "Employé")
     employes_inscrits = [
         username
         for username, data in st.session_state.utilisateurs.items()
@@ -338,7 +412,6 @@ elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
     ]
 
     if not employes_inscrits:
-        # S'il n'y a pas encore de compte avec le rôle 'Employé' explicite, on prend tous les utilisateurs sauf admin
         employes_inscrits = [
             u for u in st.session_state.utilisateurs.keys() if u != "admin"
         ]
@@ -358,7 +431,6 @@ elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
             ligne = {"Employé": emp}
             for idx, jour in enumerate(jours_ouvrables):
                 nom_col = f"{noms_jours[idx]} ({jour})"
-                # Vérifie si l'employé a un pointage enregistré pour ce jour exact
                 pointe = any(
                     p["employe"] == emp and p["date"] == jour
                     for p in st.session_state.presences
@@ -378,7 +450,9 @@ elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
         st.dataframe(df_recap, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("#### Historique brut des pointages")
+        st.markdown(
+            "#### Historique détaillé des pointages (Arrivées, Pauses & Départs)"
+        )
         if st.session_state.presences:
             df_presences = pd.DataFrame(st.session_state.presences)
             st.dataframe(df_presences, use_container_width=True)
