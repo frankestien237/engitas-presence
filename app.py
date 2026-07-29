@@ -95,7 +95,10 @@ st.markdown(
 LAT_BUREAU = 4.0511
 LON_BUREAU = 9.7679
 RAYON_AUTORISE_KM = 0.2
-HEURE_LIMITE_ARRIVEE = time(9, 0, 0)  # 09:00:00 maximum pour pointer
+HEURE_LIMITE_ARRIVEE = time(9, 0, 0)
+HEURE_STANDARD_TRAVAIL_HOURS = (
+    8.0  # Nombre d'heures normales de travail par jour
+)
 
 
 def charger_donnees(nom_fichier, valeur_defaut):
@@ -215,7 +218,6 @@ elif menu == "Signer ma présence":
         "### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée & Limite 9h00)"
     )
 
-    # Vérification immédiate de l'heure actuelle par rapport à 9h00
     maintenant_dt = datetime.now(TZ_LOCAL)
     if maintenant_dt.time() > HEURE_LIMITE_ARRIVEE:
         st.error(
@@ -261,7 +263,6 @@ elif menu == "Signer ma présence":
             valider = st.form_submit_button("Valider mon arrivée officielle")
 
             if valider:
-                # Double vérification au moment de la soumission du formulaire
                 moment_validation = datetime.now(TZ_LOCAL)
                 if moment_validation.time() > HEURE_LIMITE_ARRIVEE:
                     st.error(
@@ -304,6 +305,7 @@ elif menu == "Signer ma présence":
                                 "retour_pause": "Non pointé",
                                 "depart": "En cours",
                                 "temps_travail": "En cours",
+                                "heures_supplementaires": "0h 00m",
                                 "statut": "Présent",
                             }
                             st.session_state.presences.append(nouvelle_presence)
@@ -403,14 +405,57 @@ elif menu == "Pointer mon départ":
                             "%H:%M:%S"
                         )
                         p["depart"] = heure_depart
+
+                        # Calcul du temps de travail effectif (indépendant de l'heure d'arrivée matinale théorique)
                         t_arrivee = datetime.strptime(p["arrivee"], "%H:%M:%S")
                         t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
-                        duree = t_depart - t_arrivee
-                        p["temps_travail"] = str(duree)
+
+                        # Durée brute totale entre arrivée et départ
+                        duree_brute = t_depart - t_arrivee
+
+                        # Gestion de la soustraction de la pause si elle a été faite
+                        duree_pause = timedelta(0)
+                        if (
+                            p["depart_pause"] != "Non pointé"
+                            and p["retour_pause"] != "Non pointé"
+                        ):
+                            t_dp = datetime.strptime(
+                                p["depart_pause"], "%H:%M:%S"
+                            )
+                            t_rp = datetime.strptime(
+                                p["retour_pause"], "%H:%M:%S"
+                            )
+                            duree_pause = t_rp - t_dp
+
+                        # Temps de travail effectif réel
+                        temps_effectif = duree_brute - duree_pause
+                        if temps_effectif.total_seconds() < 0:
+                            temps_effectif = timedelta(0)
+
+                        p["temps_travail"] = str(
+                            timedelta(seconds=int(temps_effectif.total_seconds()))
+                        )
+
+                        # Calcul des heures supplémentaires journalières (au-delà de 8h effectives)
+                        secondes_travaillees = temps_effectif.total_seconds()
+                        secondes_standard = HEURE_STANDARD_TRAVAIL_HOURS * 3600
+
+                        if secondes_travaillees > secondes_standard:
+                            sec_sup = secondes_travaillees - secondes_standard
+                            hrs_sup = int(sec_sup // 3600)
+                            mins_sup = int((sec_sup % 3600) // 60)
+                            p["heures_supplementaires"] = (
+                                f"{hrs_sup}h {mins_sup}m"
+                            )
+                        else:
+                            p["heures_supplementaires"] = "0h 00m"
+
                         sauvegarder_donnees(
                             "presences.json", st.session_state.presences
                         )
-                        st.success(f"✅ Départ enregistré : **{duree}**")
+                        st.success(
+                            f"✅ Départ enregistré ! Temps effectif : **{p['temps_travail']}** | Heures supp. : **{p['heures_supplementaires']}**"
+                        )
                         trouve = True
                     else:
                         st.info("Départ déjà pointé.")
@@ -471,7 +516,7 @@ elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
 
         st.markdown("---")
         st.markdown(
-            "#### Historique détaillé des pointages (Arrivées, Pauses & Départs)"
+            "#### Historique détaillé des pointages & Heures Supplémentaires"
         )
         if st.session_state.presences:
             df_presences = pd.DataFrame(st.session_state.presences)
