@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import pandas as pd
@@ -9,6 +9,9 @@ import streamlit.components.v1 as components
 st.set_page_config(
     page_title="ENGITAS - Système de Présence", page_icon="🏢", layout="wide"
 )
+
+# Fuseau horaire local (ex: UTC+1 pour l'Afrique Centrale / Cameroun)
+TZ_LOCAL = timezone(timedelta(hours=1))
 
 # --- STYLE CSS PERSONNALISÉ ---
 st.markdown(
@@ -261,8 +264,9 @@ elif menu == "Signer ma présence":
             )
 
             if distance <= RAYON_AUTORISE_KM:
-                date_jour = datetime.now().strftime("%Y-%m-%d")
-                heure_arrivee = datetime.now().strftime("%H:%M:%S")
+                date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
+                heure_arrivee = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
+
                 deja_pointe = any(
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
@@ -292,7 +296,8 @@ elif menu == "Signer ma présence":
 # --- 4. POINTER MON DÉPART ---
 elif menu == "Pointer mon départ":
     st.markdown("### 🚪 Pointer mon Départ")
-    date_jour = datetime.now().strftime("%Y-%m-%d")
+    date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
+
     with st.form("form_depart"):
         submit_depart = st.form_submit_button("Enregistrer mon départ")
         if submit_depart:
@@ -303,7 +308,9 @@ elif menu == "Pointer mon départ":
                     and p["date"] == date_jour
                 ):
                     if p["depart"] == "En cours":
-                        heure_depart = datetime.now().strftime("%H:%M:%S")
+                        heure_depart = datetime.now(TZ_LOCAL).strftime(
+                            "%H:%M:%S"
+                        )
                         p["depart"] = heure_depart
                         t_arrivee = datetime.strptime(p["arrivee"], "%H:%M:%S")
                         t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
@@ -331,7 +338,7 @@ elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
         st.download_button(
             label="📥 Télécharger l'historique complet (CSV)",
             data=csv,
-            file_name=f"backup_presences_{datetime.now().strftime('%Y-%m-%d')}.csv",
+            file_name=f"backup_presences_{datetime.now(TZ_LOCAL).strftime('%Y-%m-%d')}.csv",
             mime="text/csv",
         )
     else:
