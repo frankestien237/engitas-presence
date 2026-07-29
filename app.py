@@ -130,7 +130,6 @@ if "utilisateurs" not in st.session_state:
 
 if "presences" not in st.session_state:
     raw_presences = charger_donnees("presences.json", [])
-    # Correction automatique des anciennes données (migration)
     for p in raw_presences:
         if "depart_pause" not in p:
             p["depart_pause"] = "Non pointé"
@@ -332,26 +331,39 @@ elif menu == "Départ Pause (12h)":
     with st.form("form_depart_pause"):
         submit_dp = st.form_submit_button("Enregistrer mon départ en pause")
         if submit_dp:
-            trouve = False
+            # Recherche ou création automatique de la présence du jour
+            p_trouve = None
             for p in st.session_state.presences:
                 if (
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
                 ):
-                    if p.get("depart_pause", "Non pointé") == "Non pointé":
-                        heure_dp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
-                        p["depart_pause"] = heure_dp
-                        sauvegarder_donnees(
-                            "presences.json", st.session_state.presences
-                        )
-                        st.success(f"✅ Départ en pause enregistré à {heure_dp}")
-                        trouve = True
-                    else:
-                        st.info("Vous avez déjà pointé votre départ en pause.")
-                        trouve = True
+                    p_trouve = p
                     break
-            if not trouve:
-                st.warning("Aucune arrivée enregistrée aujourd'hui.")
+
+            if not p_trouve:
+                p_trouve = {
+                    "employe": st.session_state.user_connecte,
+                    "date": date_jour,
+                    "arrivee": "08:00:00",
+                    "depart_pause": "Non pointé",
+                    "retour_pause": "Non pointé",
+                    "depart": "En cours",
+                    "temps_travail": "En cours",
+                    "heures_supplementaires": "0h 00m",
+                    "statut": "Présent",
+                }
+                st.session_state.presences.append(p_trouve)
+
+            if p_trouve.get("depart_pause", "Non pointé") == "Non pointé":
+                heure_dp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
+                p_trouve["depart_pause"] = heure_dp
+                sauvegarder_donnees(
+                    "presences.json", st.session_state.presences
+                )
+                st.success(f"✅ Départ en pause enregistré à {heure_dp}")
+            else:
+                st.info("Vous avez déjà pointé votre départ en pause.")
 
 # --- 5. RETOUR PAUSE (13h) ---
 elif menu == "Retour Pause (13h)":
@@ -361,36 +373,41 @@ elif menu == "Retour Pause (13h)":
     with st.form("form_retour_pause"):
         submit_rp = st.form_submit_button("Enregistrer mon retour de pause")
         if submit_rp:
-            trouve = False
+            p_trouve = None
             for p in st.session_state.presences:
                 if (
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
                 ):
-                    if p.get("depart_pause", "Non pointé") != "Non pointé":
-                        if p.get("retour_pause", "Non pointé") == "Non pointé":
-                            heure_rp = datetime.now(TZ_LOCAL).strftime(
-                                "%H:%M:%S"
-                            )
-                            p["retour_pause"] = heure_rp
-                            sauvegarder_donnees(
-                                "presences.json", st.session_state.presences
-                            )
-                            st.success(
-                                f"✅ Retour de pause enregistré à {heure_rp}"
-                            )
-                            trouve = True
-                        else:
-                            st.info("Vous avez déjà pointé votre retour de pause.")
-                            trouve = True
-                    else:
-                        st.warning(
-                            "Vous devez d'abord pointer votre départ en pause !"
-                        )
-                        trouve = True
+                    p_trouve = p
                     break
-            if not trouve:
-                st.warning("Aucune arrivée enregistrée aujourd'hui.")
+
+            if not p_trouve:
+                p_trouve = {
+                    "employe": st.session_state.user_connecte,
+                    "date": date_jour,
+                    "arrivee": "08:00:00",
+                    "depart_pause": "Non pointé",
+                    "retour_pause": "Non pointé",
+                    "depart": "En cours",
+                    "temps_travail": "En cours",
+                    "heures_supplementaires": "0h 00m",
+                    "statut": "Présent",
+                }
+                st.session_state.presences.append(p_trouve)
+
+            if p_trouve.get("depart_pause", "Non pointé") != "Non pointé":
+                if p_trouve.get("retour_pause", "Non pointé") == "Non pointé":
+                    heure_rp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
+                    p_trouve["retour_pause"] = heure_rp
+                    sauvegarder_donnees(
+                        "presences.json", st.session_state.presences
+                    )
+                    st.success(f"✅ Retour de pause enregistré à {heure_rp}")
+                else:
+                    st.info("Vous avez déjà pointé votre retour de pause.")
+            else:
+                st.warning("Vous devez d'abord pointer votre départ en pause !")
 
 # --- 6. POINTER MON DÉPART ---
 elif menu == "Pointer mon départ":
@@ -400,65 +417,72 @@ elif menu == "Pointer mon départ":
     with st.form("form_depart"):
         submit_depart = st.form_submit_button("Enregistrer mon départ")
         if submit_depart:
-            trouve = False
+            # Recherche ou création automatique de la présence du jour si absente
+            p_trouve = None
             for p in st.session_state.presences:
                 if (
                     p["employe"] == st.session_state.user_connecte
                     and p["date"] == date_jour
                 ):
-                    if p["depart"] == "En cours":
-                        heure_depart = datetime.now(TZ_LOCAL).strftime(
-                            "%H:%M:%S"
-                        )
-                        p["depart"] = heure_depart
-
-                        t_arrivee = datetime.strptime(p["arrivee"], "%H:%M:%S")
-                        t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
-
-                        duree_brute = t_depart - t_arrivee
-
-                        duree_pause = timedelta(0)
-                        dp = p.get("depart_pause", "Non pointé")
-                        rp = p.get("retour_pause", "Non pointé")
-                        if dp != "Non pointé" and rp != "Non pointé":
-                            t_dp = datetime.strptime(dp, "%H:%M:%S")
-                            t_rp = datetime.strptime(rp, "%H:%M:%S")
-                            duree_pause = t_rp - t_dp
-
-                        temps_effectif = duree_brute - duree_pause
-                        if temps_effectif.total_seconds() < 0:
-                            temps_effectif = timedelta(0)
-
-                        p["temps_travail"] = str(
-                            timedelta(seconds=int(temps_effectif.total_seconds()))
-                        )
-
-                        secondes_travaillees = temps_effectif.total_seconds()
-                        secondes_standard = HEURE_STANDARD_TRAVAIL_HOURS * 3600
-
-                        if secondes_travaillees > secondes_standard:
-                            sec_sup = secondes_travaillees - secondes_standard
-                            hrs_sup = int(sec_sup // 3600)
-                            mins_sup = int((sec_sup % 3600) // 60)
-                            p["heures_supplementaires"] = (
-                                f"{hrs_sup}h {mins_sup}m"
-                            )
-                        else:
-                            p["heures_supplementaires"] = "0h 00m"
-
-                        sauvegarder_donnees(
-                            "presences.json", st.session_state.presences
-                        )
-                        st.success(
-                            f"✅ Départ enregistré ! Temps effectif : **{p['temps_travail']}** | Heures supp. : **{p['heures_supplementaires']}**"
-                        )
-                        trouve = True
-                    else:
-                        st.info("Départ déjà pointé.")
-                        trouve = True
+                    p_trouve = p
                     break
-            if not trouve:
-                st.warning("Aucune arrivée enregistrée aujourd'hui.")
+
+            if not p_trouve:
+                p_trouve = {
+                    "employe": st.session_state.user_connecte,
+                    "date": date_jour,
+                    "arrivee": "08:00:00",  # Valeur par défaut si arrivée non pointée
+                    "depart_pause": "Non pointé",
+                    "retour_pause": "Non pointé",
+                    "depart": "En cours",
+                    "temps_travail": "En cours",
+                    "heures_supplementaires": "0h 00m",
+                    "statut": "Présent",
+                }
+                st.session_state.presences.append(p_trouve)
+
+            if p_trouve["depart"] == "En cours" or p_trouve["depart"]:
+                heure_depart = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
+                p_trouve["depart"] = heure_depart
+
+                t_arrivee = datetime.strptime(p_trouve["arrivee"], "%H:%M:%S")
+                t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
+
+                duree_brute = t_depart - t_arrivee
+
+                duree_pause = timedelta(0)
+                dp = p_trouve.get("depart_pause", "Non pointé")
+                rp = p_trouve.get("retour_pause", "Non pointé")
+                if dp != "Non pointé" and rp != "Non pointé":
+                    t_dp = datetime.strptime(dp, "%H:%M:%S")
+                    t_rp = datetime.strptime(rp, "%H:%M:%S")
+                    duree_pause = t_rp - t_dp
+
+                temps_effectif = duree_brute - duree_pause
+                if temps_effectif.total_seconds() < 0:
+                    temps_effectif = timedelta(0)
+
+                p_trouve["temps_travail"] = str(
+                    timedelta(seconds=int(temps_effectif.total_seconds()))
+                )
+
+                secondes_travaillees = temps_effectif.total_seconds()
+                secondes_standard = HEURE_STANDARD_TRAVAIL_HOURS * 3600
+
+                if secondes_travaillees > secondes_standard:
+                    sec_sup = secondes_travaillees - secondes_standard
+                    hrs_sup = int(sec_sup // 3600)
+                    mins_sup = int((sec_sup % 3600) // 60)
+                    p_trouve["heures_supplementaires"] = f"{hrs_sup}h {mins_sup}m"
+                else:
+                    p_trouve["heures_supplementaires"] = "0h 00m"
+
+                sauvegarder_donnees("presences.json", st.session_state.presences)
+                st.success(
+                    f"✅ Départ enregistré ! Temps effectif : **{p_trouve['temps_travail']}** | Heures supp. : **{p_trouve['heures_supplementaires']}**"
+                )
+            else:
+                st.info("Départ déjà pointé.")
 
 # --- 7. TABLEAU DE BORD ADMIN ---
 elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
