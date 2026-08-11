@@ -1,9 +1,9 @@
 from datetime import datetime, time, timedelta, timezone
 import json
 import os
-import pandas as pd
-import streamlit as st
-import streamlit.components.v1 as components
+import pandas as pd # type: ignore
+import streamlit as st # type: ignore
+import streamlit.components.v1 as components # type: ignore
 
 # Configuration de la page
 st.set_page_config(
@@ -26,7 +26,7 @@ st.markdown(
         background-color: #0f172a;
     }
     [data-testid="stSidebar"] {
-        background-color: #1e293b;
+        background-color: #1e293b;flet build apk
         border-right: 1px solid #334155;
     }
     h2 {
@@ -90,13 +90,11 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
 LAT_BUREAU = 4.0511
 LON_BUREAU = 9.7679
-RAYON_AUTORISE_KM = 0.2
+RAYON_AUTORISE_KM = 0.001  # 1 mètre (1 mètre = 0,001 kilomètre)
 HEURE_LIMITE_ARRIVEE = time(9, 0, 0)
 HEURE_STANDARD_TRAVAIL_HOURS = 8.0
-
 
 def charger_donnees(nom_fichier, valeur_defaut):
     if not os.path.exists(nom_fichier) or os.path.getsize(nom_fichier) == 0:
