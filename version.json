@@ -1,30 +1,3 @@
-import requests
-
-VERSION_ACTUELLE = "1.0.0"  # Version de l'APK actuel généré via WebIntoApp
-# URL directe vers ton fichier version.json sur GitHub (mode raw) ou ton site
-URL_API_VERSION = "https://raw.githubusercontent.com/ton-pseudo/ton-repo/main/version.json"
-
-def verifier_mise_a_jour(page: ft.Page):
-    try:
-        response = requests.get(URL_API_VERSION, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            version_en_ligne = data.get("version")
-            
-            if version_en_ligne and version_en_ligne != VERSION_ACTUELLE:
-                def fermer_dlg(e):
-                    dlg.open = False
-                    page.update()
-
-                dlg = ft.AlertDialog(
-                    title=ft.Text("Mise à jour disponible !"),
-                    content=ft.Text(f"Une nouvelle version ({version_en_ligne}) est disponible. Veuillez télécharger la dernière version."),
-                    actions=[
-                        ft.TextButton("Fermer", on_click=fermer_dlg)
-                    ],
-                )
-                page.dialog = dlg
-                dlg.open = True
-                page.update()
-    except Exception as e:
-        print(f"Erreur vérification mise à jour : {e}")
+{
+  "version": "1.0.1"
+}
