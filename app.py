@@ -1,553 +1,698 @@
-from datetime import datetime, time, timedelta, timezone
-import json
-import os
-import pandas as pd # type: ignore
-import streamlit as st # type: ignore
-import streamlit.components.v1 as components # type: ignore
+import streamlit as st
 
 # Configuration de la page
 st.set_page_config(
-    page_title="ENGITAS - Système de Présence", page_icon="🏢", layout="wide"
+    page_title="ENGITAS - Système de Présence",
+    page_icon="🛡️",
+    layout="wide",
 )
 
-# Fuseau horaire local (UTC+1)
-TZ_LOCAL = timezone(timedelta(hours=1))
-
-# --- STYLE CSS PERSONNALISÉ ---
+# Injection du CSS personnalisé
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    html, body, [class*="st-"] {
-        font-family: 'Inter', sans-serif;
-        color: #e2e8f0;
-    }
-    [data-testid="stAppViewContainer"] {
-        background-color: #0f172a;
+    .stApp {
+        background-color: #0b0f19;
+        color: #ffffff;
     }
     [data-testid="stSidebar"] {
-        background-color: #1e293b;flet build apk
-        border-right: 1px solid #334155;
+        background-color: #111827;
+        border-right: 1px solid #1f2937;
     }
-    h2 {
-        color: #00b4d8 !important;
-        font-weight: 700 !important;
+    .login-container {
+        background-color: #0b0f19;
+        border: 2px solid #1e3a8a;
+        border-radius: 16px;
+        padding: 40px;
+        box-shadow: 0 0 25px rgba(30, 58, 138, 0.4);
+        max-width: 700px;
+        margin: auto;
     }
-    h1, h3 {
-        color: #f8fafc !important;
-        font-weight: 700 !important;
-    }
-    [data-testid="stForm"] {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: 12px;
-        padding: 2rem !important;
-    }
-    label p {
-        color: #94a3b8 !important;
+    .stButton>button {
+        background: linear-gradient(90deg, #0284c7 0%, #0369a1 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
         font-weight: 600;
-    }
-    [data-testid="stTextInput"] > div > div {
-        background-color: #0f172a !important;
-        border: 1px solid #475569 !important;
-        color: #f8fafc !important;
-    }
-    div.stButton > button {
-        background-color: #00b4d8 !important;
-        color: #ffffff !important;
-        border: none !important;
-        font-weight: 700 !important;
-        padding: 0.75rem 1.5rem !important;
-        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
         transition: all 0.3s ease;
     }
-    div.stButton > button:hover {
-        background-color: #0369a1 !important;
+    .stButton>button:hover {
+        background: linear-gradient(90deg, #0369a1 100%, #075985 100%);
     }
-    footer {visibility: hidden;}
+    .stTextInput>div>div>input {
+        background-color: #111827;
+        color: white;
+        border: 1px solid #374151;
+        border-radius: 8px;
+    }
+    h1, h2, h3 {
+        color: #ffffff;
+    }
+    /* Style des cartes de localisation géographique */
+    .location-card {
+        background-color: #111827;
+        border: 1px solid #1e3a8a;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .location-card h4 {
+        color: #38bdf8;
+        margin: 0 0 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .location-card p {
+        color: #9ca3af;
+        margin: 0;
+        font-size: 14px;
+    }
+    /* Style des badges de partenaires et cartes de confiance */
+    .partner-badge {
+        background-color: #ffffff;
+        color: #111827;
+        border-radius: 10px;
+        padding: 12px 15px;
+        text-align: center;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 14px;
+        border: 1px solid #e5e7eb;
+    }
+    .trust-card {
+        background-color: #ffffff;
+        color: #111827;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        margin-bottom: 20px;
+        border: 1px solid #e5e7eb;
+        height: 110px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .trust-card h4 {
+        color: #111827;
+        margin: 0 0 5px 0;
+        font-size: 16px;
+    }
+    .trust-card p {
+        color: #6b7280;
+        margin: 0;
+        font-size: 13px;
+    }
+    .service-card {
+        background-color: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 16px;
+        padding: 25px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        height: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    /* Style du pied de page */
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #111827;
+        color: #9ca3af;
+        text-align: center;
+        padding: 10px;
+        font-size: 13px;
+        border-top: 1px solid #1f2937;
+        z-index: 100;
+    }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# --- EN-TÊTE VISUEL STYLE SITE WEB ENGITAS ---
+# Initialisation de la session
+if "connecte" not in st.session_state:
+    st.session_state.connecte = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "role" not in st.session_state:
+    st.session_state.role = ""
+if "page_active" not in st.session_state:
+    st.session_state.page_active = "Connexion"
+
+# --- SI L'UTILISATEUR N'EST PAS CONNECTÉ ---
+if not st.session_state.connecte:
+    with st.sidebar:
+        st.markdown("### **ENGITAS**")
+        st.markdown(
+            "<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+        st.markdown("**Navigation**")
+        auth_mode = st.radio(
+            "", ["Connexion", "S'inscrire"], label_visibility="collapsed"
+        )
+
+    # En-tête supérieur avec menu complet (Accueil, Services, Écosystème, Contact, Présence géographique)
+    col_logo, col_menu, col_btn = st.columns([1, 4, 1])
+    with col_logo:
+        st.markdown("### 🌐 ENGITAS")
+    with col_menu:
+        m1, m2, m3, m4, m5 = st.columns(5)
+        with m1:
+            if st.button("Accueil"):
+                st.session_state.page_active = "Connexion"
+                st.rerun()
+        with m2:
+            if st.button("Services"):
+                st.session_state.page_active = "Services"
+                st.rerun()
+        with m3:
+            if st.button("Écosystème"):
+                st.session_state.page_active = "Ecosysteme"
+                st.rerun()
+        with m4:
+            if st.button("Présence géo"):
+                st.session_state.page_active = "PresenceGeo"
+                st.rerun()
+        with m5:
+            if st.button("Contact"):
+                st.session_state.page_active = "Contact"
+                st.rerun()
+    with col_btn:
+        st.button("Demander un devis")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Affichage selon la page active
+    if st.session_state.page_active == "PresenceGeo":
+        st.markdown(
+            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>PRÉSENCE GÉOGRAPHIQUE</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<h1 style='text-align: center; margin-bottom: 40px;'>Nous trouver</h1>",
+            unsafe_allow_html=True,
+        )
+
+        geo_col1, geo_col2 = st.columns([1.3, 1])
+
+        with geo_col1:
+            # Intégration de la carte interactive Google Maps (Chapelle Essos, Yaoundé)
+            st.markdown(
+                """
+                <div style="border-radius: 12px; overflow: hidden; border: 1px solid #1e3a8a; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3980.772591691515!2d11.5305!3d3.8667!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zQsOhbnF1ZSBvdSBDaGFwZWxsZSBFc3NvcywgWWFvdW5kw6ksIENhbWVyb3Vu!5e0!3m2!1sfr!2sfr!4v1620000000000!5m2!1sfr!2sfr" width="100%" height="380" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with geo_col2:
+            st.markdown(
+                """
+                <div class="location-card">
+                    <h4>📍 Yaoundé</h4>
+                    <p><b>Lieu-dit :</b> Chapelle ESSOS</p>
+                    <p><b>B.P. :</b> 13820, Yaoundé</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                """
+                <div class="location-card">
+                    <h4>📍 Douala</h4>
+                    <p><b>Lieu-dit :</b> Bali, en face station MRS</p>
+                    <p><b>B.P. :</b> 13820, Yaoundé</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        inf_col1, inf_col2 = st.columns(2)
+        with inf_col1:
+            st.markdown(
+                """
+                <div style="background-color: #111827; padding: 20px; border-radius: 12px; border: 1px solid #1f2937;">
+                    <p style="margin: 0; color: #38bdf8; font-weight: bold;">📞 Téléphones :</p>
+                    <p style="margin: 5px 0 0 0; color: #ffffff; font-size: 14px;">
+                        +237 699 580 265 / +237 699 361 756<br>
+                        +237 691 797 770 / +237 699 683 833<br>
+                        +237 222 226 190
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with inf_col2:
+            st.markdown(
+                """
+                <div style="background-color: #111827; padding: 20px; border-radius: 12px; border: 1px solid #1f2937;">
+                    <p style="margin: 0; color: #38bdf8; font-weight: bold;">✉️ Emails & Web :</p>
+                    <p style="margin: 5px 0 0 0; color: #ffffff; font-size: 14px;">
+                        contact@engitas.com<br>
+                        support@engitas.com<br>
+                        www.engitas.com
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    elif st.session_state.page_active == "Contact":
+        st.markdown(
+            "<h2 style='text-align: center; margin-bottom: 20px;'>📞 Contacts en cas de problème</h2>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            """
+            <div class="login-container" style="text-align: center;">
+                <p style="font-size: 18px; margin-bottom: 20px;">Besoin d'assistance ? Contactez les responsables ci-dessous :</p>
+                <div style="background-color: #111827; padding: 20px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #374151;">
+                    <h3 style="color: #38bdf8; margin-bottom: 5px;">ARNOLD OMAM</h3>
+                    <p style="color: #9ca3af; margin: 0;">Développeur (DEV)</p>
+                    <p style="font-size: 20px; font-weight: bold; color: #ffffff; margin-top: 10px;">📞 698 27 81 63</p>
+                </div>
+                <div style="background-color: #111827; padding: 20px; border-radius: 10px; border: 1px solid #374151;">
+                    <h3 style="color: #38bdf8; margin-bottom: 5px;">Mr Valere FEUGWANG</h3>
+                    <p style="color: #9ca3af; margin: 0;">Directeur Général (DG)</p>
+                    <p style="font-size: 20px; font-weight: bold; color: #ffffff; margin-top: 10px;">📞 699 58 02 65</p>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    elif st.session_state.page_active == "Ecosysteme":
+        st.markdown(
+            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>ÉCOSYSTÈME</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<h1 style='text-align: center; margin-bottom: 10px;'>Partenaires technologiques</h1>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<p style='text-align: center; color: #9ca3af; margin-bottom: 30px;'>Les meilleurs éditeurs et constructeurs pour des solutions fiables et éprouvées.</p>",
+            unsafe_allow_html=True,
+        )
+
+        p1, p2, p3, p4, p5, p6, p7, p8 = st.columns(8)
+        with p1:
+            st.markdown(
+                '<div class="partner-badge">🪟 Microsoft</div>',
+                unsafe_allow_html=True,
+            )
+        with p2:
+            st.markdown(
+                '<div class="partner-badge">🔵 IBM</div>',
+                unsafe_allow_html=True,
+            )
+        with p3:
+            st.markdown(
+                '<div class="partner-badge">🟧 Proxmox</div>',
+                unsafe_allow_html=True,
+            )
+        with p4:
+            st.markdown(
+                '<div class="partner-badge">🟥 Lenovo</div>',
+                unsafe_allow_html=True,
+            )
+        with p5:
+            st.markdown(
+                '<div class="partner-badge">🌐 Dell EMC</div>',
+                unsafe_allow_html=True,
+            )
+        with p6:
+            st.markdown(
+                '<div class="partner-badge">🔴 Oracle</div>',
+                unsafe_allow_html=True,
+            )
+        with p7:
+            st.markdown(
+                '<div class="partner-badge">🔷 VMware</div>',
+                unsafe_allow_html=True,
+            )
+        with p8:
+            st.markdown(
+                '<div class="partner-badge">🔴 Fortinet</div>',
+                unsafe_allow_html=True,
+            )
+
+        q1, q2, q3, q4, q5, q6, q7 = st.columns(7)
+        with q1:
+            st.markdown(
+                '<div class="partner-badge">🟩 Veeam</div>',
+                unsafe_allow_html=True,
+            )
+        with q2:
+            st.markdown(
+                '<div class="partner-badge">🟣 SentinelOne</div>',
+                unsafe_allow_html=True,
+            )
+        with q3:
+            st.markdown(
+                '<div class="partner-badge">⬛ NetApp</div>',
+                unsafe_allow_html=True,
+            )
+        with q4:
+            st.markdown(
+                '<div class="partner-badge">📈 ManageEngine</div>',
+                unsafe_allow_html=True,
+            )
+        with q5:
+            st.markdown(
+                '<div class="partner-badge">🩷 Check Point</div>',
+                unsafe_allow_html=True,
+            )
+        with q6:
+            st.markdown(
+                '<div class="partner-badge">🔴 Trend Micro</div>',
+                unsafe_allow_html=True,
+            )
+        with q7:
+            st.markdown(
+                '<div class="partner-badge">🟢 Kaspersky</div>',
+                unsafe_allow_html=True,
+            )
+
+        r1, r2, r3, r4, r5, r6, r7, r8 = st.columns(8)
+        with r1:
+            st.markdown(
+                '<div class="partner-badge">🔴 Symantec</div>',
+                unsafe_allow_html=True,
+            )
+        with r2:
+            st.markdown(
+                '<div class="partner-badge">🔴 Broadcom</div>',
+                unsafe_allow_html=True,
+            )
+        with r3:
+            st.markdown(
+                '<div class="partner-badge"> Hewlett Packard Enterprise</div>',
+                unsafe_allow_html=True,
+            )
+        with r4:
+            st.markdown(
+                '<div class="partner-badge">🟧 Wallix</div>',
+                unsafe_allow_html=True,
+            )
+        with r5:
+            st.markdown(
+                '<div class="partner-badge">⬛ CyberArk</div>',
+                unsafe_allow_html=True,
+            )
+        with r6:
+            st.markdown(
+                '<div class="partner-badge">🟥 Huawei</div>',
+                unsafe_allow_html=True,
+            )
+        with r7:
+            st.markdown(
+                '<div class="partner-badge">🔴 Ricoh</div>',
+                unsafe_allow_html=True,
+            )
+        with r8:
+            st.markdown(
+                '<div class="partner-badge">🟦 Cisco</div>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown(
+            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>CONFIANCE</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<h2 style='text-align: center; margin-bottom: 40px;'>Ils nous font confiance</h2>",
+            unsafe_allow_html=True,
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown(
+                '<div class="trust-card"><h4>COBAC</h4><p>Banque & Finance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>CORIS Bank</h4><p>Banque & Finance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>CCEI Bank</h4><p>Banque & Finance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>La Regionale</h4><p>Assurance</p></div>',
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                '<div class="trust-card"><h4>Orange</h4><p>Télécommunications</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>Attijariwafa Bank</h4><p>Banque & Finance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>Vision Finance</h4><p>Microfinance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>OAPI</h4><p>Institution Publique</p></div>',
+                unsafe_allow_html=True,
+            )
+        with c3:
+            st.markdown(
+                '<div class="trust-card"><h4>CFAO Mobility</h4><p>Automobile</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>BANGE Bank</h4><p>Banque & Finance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>GroupeSNEF</h4><p>Industrie</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>BHT</h4><p>Hôtellerie & Tourisme</p></div>',
+                unsafe_allow_html=True,
+            )
+        with c4:
+            st.markdown(
+                '<div class="trust-card"><h4>BICEC</h4><p>Banque & Finance</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>BEAC</h4><p>Institution Financière</p></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="trust-card"><h4>BC-PME SA</h4><p>Institution Financière</p></div>',
+                unsafe_allow_html=True,
+            )
+
+    elif st.session_state.page_active == "Services":
+        st.markdown(
+            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>NOS SERVICES</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<h1 style='text-align: center; margin-bottom: 10px;'>Des solutions IT complètes et intégrées</h1>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<p style='text-align: center; color: #9ca3af; margin-bottom: 40px;'>De l'audit stratégique à la cybersécurité, nous couvrons l'ensemble de vos besoins informatiques avec des solutions sur mesure.</p>",
+            unsafe_allow_html=True,
+        )
+
+        row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
+        with row1_col1:
+            st.markdown(
+                '<div class="service-card"><h3>🔍</h3><p><b>Audit & Conseil IT</b></p></div>',
+                unsafe_allow_html=True,
+            )
+        with row1_col2:
+            st.markdown(
+                '<div class="service-card"><h3>🌐</h3><p><b>Infrastructure & Réseau</b></p></div>',
+                unsafe_allow_html=True,
+            )
+        with row1_col3:
+            st.markdown(
+                '<div class="service-card"><h3>🛡️</h3><p><b>Cybersécurité</b></p></div>',
+                unsafe_allow_html=True,
+            )
+        with row1_col4:
+            st.markdown(
+                '<div class="service-card"><h3>☁️</h3><p><b>Cloud Computing</b></p></div>',
+                unsafe_allow_html=True,
+            )
+
+        row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4)
+        with row2_col1:
+            st.markdown(
+                '<div class="service-card"><h3>💻</h3><p><b>Services Managés</b></p></div>',
+                unsafe_allow_html=True,
+            )
+        with row2_col2:
+            st.markdown(
+                '<div class="service-card"><h3>👥</h3><p><b>Environnement Utilisateur</b></p></div>',
+                unsafe_allow_html=True,
+            )
+        with row2_col3:
+            st.markdown(
+                '<div class="service-card"><h3>⚡</h3><p><b>Solutions Logicielles & Data</b></p></div>',
+                unsafe_allow_html=True,
+            )
+        with row2_col4:
+            st.markdown(
+                '<div class="service-card"><h3>🎓</h3><p><b>Formation & Certifications</b></p></div>',
+                unsafe_allow_html=True,
+            )
+
+    else:
+        if auth_mode == "Connexion":
+            st.markdown(
+                "<h2 style='text-align: center; margin-bottom: 30px;'>Connexion à votre compte ENGITAS</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown('<div class="login-container">', unsafe_allow_html=True)
+            username = st.text_input(
+                "Nom d'utilisateur", placeholder="Nom d'utilisateur"
+            )
+            password = st.text_input(
+                "Mot de passe", type="password", placeholder="Mot de passe"
+            )
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            if st.button("Se connecter"):
+                if username and password:
+                    if (
+                        username.lower() == "admin"
+                        and password == "adminpassword"
+                    ):
+                        st.session_state.connecte = True
+                        st.session_state.username = username
+                        st.session_state.role = "admin"
+                        st.rerun()
+                    else:
+                        st.session_state.connecte = True
+                        st.session_state.username = username
+                        st.session_state.role = "employe"
+                        st.rerun()
+                else:
+                    st.warning("Veuillez remplir tous les champs.")
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(
+                "<h2 style='text-align: center; margin-bottom: 30px;'>Inscription - ENGITAS</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown('<div class="login-container">', unsafe_allow_html=True)
+            st.text_input("Nom complet", placeholder="Votre nom")
+            st.text_input("Nouvel utilisateur", placeholder="Nom d'utilisateur")
+            st.text_input("Nouveau mot de passe", type="password")
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("S'inscrire"):
+                st.success(
+                    "Compte créé avec succès ! Vous pouvez vous connecter."
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+# --- SI L'UTILISATEUR EST CONNECTÉ ---
+else:
+    with st.sidebar:
+        st.markdown("### **ENGITAS**")
+        st.markdown(
+            "<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+        st.markdown(
+            f"👤 **Connecté :**\n<span style='color: #38bdf8;'>{st.session_state.username}</span>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+        st.markdown("**Navigation**")
+
+        if st.session_state.role == "admin":
+            options_menu = [
+                "Tableau de bord",
+                "Gestion des employés",
+                "Admin",
+                "Déconnexion",
+            ]
+        else:
+            options_menu = [
+                "Signer ma présence",
+                "Départ Pause (12h)",
+                "Retour Pause (13h)",
+                "Pointer mon départ",
+                "Déconnexion",
+            ]
+
+        menu_option = st.radio(
+            "", options_menu, label_visibility="collapsed"
+        )
+
+        if menu_option == "Déconnexion":
+            st.session_state.connecte = False
+            st.session_state.username = ""
+            st.session_state.role = ""
+            st.rerun()
+
+    col_logo, col_menu, col_btn = st.columns([1, 3, 1])
+    with col_logo:
+        st.markdown("### 🌐 ENGITAS")
+    with col_btn:
+        st.button("Demander un devis")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if menu_option == "Signer ma présence":
+        st.markdown(
+            "### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée & Limite 9h00)"
+        )
+        st.error(
+            "⏳ POINTAGE FERMÉ : Il est plus de 09h00. Le pointage des arrivées n'est plus autorisé pour aujourd'hui."
+        )
+    elif menu_option == "Tableau de bord":
+        st.markdown("### 📊 Tableau de bord de présence")
+        st.info("Ici s'affiche l'historique de vos pointages.")
+    elif menu_option == "Gestion des employés":
+        st.markdown("### 👥 Gestion des employés (Admin)")
+        st.info("Interface d'administration des comptes employés.")
+    else:
+        st.markdown(f"### Section : {menu_option}")
+        st.info(
+            "Cette section est prête à intégrer vos fonctionnalités de pointage."
+        )
+
+# --- PIED DE PAGE FIXE EN BAS ---
 st.markdown(
     """
-    <div style="display: flex; align-items: center; justify-content: space-between; background-color: #0f172a; padding: 10px 20px; border-bottom: 1px solid #1e293b; margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <span style="color: #00b4d8; font-weight: bold; font-size: 20px;">🌐 ENGITAS</span>
-            <span style="background-color: #00b4d8; color: white; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">Accueil</span>
-            <span style="color: #94a3b8; font-size: 14px;">Services</span>
-            <span style="color: #94a3b8; font-size: 14px;">Références</span>
-            <span style="color: #94a3b8; font-size: 14px;">Formations</span>
-            <span style="color: #94a3b8; font-size: 14px;">Contact</span>
-        </div>
-        <div>
-            <span style="background-color: #00b4d8; color: white; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold;">Demander un devis</span>
-        </div>
+    <div class="footer">
+        Design & Développement by <b>ARNOLD OMAM</b> | ENGITAS 2026
     </div>
     """,
     unsafe_allow_html=True,
 )
-LAT_BUREAU = 4.0511
-LON_BUREAU = 9.7679
-RAYON_AUTORISE_KM = 0.001  # 1 mètre (1 mètre = 0,001 kilomètre)
-HEURE_LIMITE_ARRIVEE = time(9, 0, 0)
-HEURE_STANDARD_TRAVAIL_HOURS = 8.0
-
-def charger_donnees(nom_fichier, valeur_defaut):
-    if not os.path.exists(nom_fichier) or os.path.getsize(nom_fichier) == 0:
-        return valeur_defaut
-    try:
-        with open(nom_fichier, "r", encoding="utf-8") as f:
-            contenu = f.read().strip()
-            if not contenu:
-                return valeur_defaut
-            return json.loads(contenu)
-    except Exception:
-        return valeur_defaut
-
-
-def sauvegarder_donnees(nom_fichier, donnees):
-    with open(nom_fichier, "w", encoding="utf-8") as f:
-        json.dump(donnees, f, ensure_ascii=False, indent=4)
-
-
-if "utilisateurs" not in st.session_state:
-    st.session_state.utilisateurs = charger_donnees(
-        "utilisateurs.json",
-        {
-            "admin": {
-                "password": "adminpassword",
-                "role": "Administrateur",
-                "nom": "Administrateur",
-            }
-        },
-    )
-
-if "presences" not in st.session_state:
-    raw_presences = charger_donnees("presences.json", [])
-    for p in raw_presences:
-        if "depart_pause" not in p:
-            p["depart_pause"] = "Non pointé"
-        if "retour_pause" not in p:
-            p["retour_pause"] = "Non pointé"
-        if "heures_supplementaires" not in p:
-            p["heures_supplementaires"] = "0h 00m"
-    st.session_state.presences = raw_presences
-
-# --- BARRE LATÉRALE ---
-st.sidebar.markdown(
-    "<h2 style='color: #00b4d8; text-align: center;'>ENGITAS</h2>",
-    unsafe_allow_html=True,
-)
-st.sidebar.markdown(
-    "<p style='text-align: center; color: #a0a0a0; font-size: 14px;'>Sécurité & Pointage GPS</p>",
-    unsafe_allow_html=True,
-)
-st.sidebar.markdown("---")
-
-if "user_connecte" in st.session_state:
-    st.sidebar.markdown(f"👤 Connecté : **{st.session_state.user_connecte}**")
-    role_actuel = st.session_state.utilisateurs[st.session_state.user_connecte][
-        "role"
-    ]
-
-    options_menu = [
-        "Signer ma présence",
-        "Départ Pause (12h)",
-        "Retour Pause (13h)",
-        "Pointer mon départ",
-    ]
-    if role_actuel == "Administrateur":
-        options_menu.append("Tableau de bord Admin")
-
-    options_menu.append("Déconnexion")
-    menu = st.sidebar.radio("Navigation", options_menu)
-
-    if menu == "Déconnexion":
-        del st.session_state.user_connecte
-        st.rerun()
-else:
-    menu = st.sidebar.radio("Navigation", ["Connexion", "S'inscrire"])
-
-# --- 1. CONNEXION ---
-if menu == "Connexion":
-    st.markdown("### Connexion à votre compte ENGITAS")
-    with st.form("form_connexion"):
-        username = st.text_input("Nom d'utilisateur")
-        password = st.text_input("Mot de passe", type="password")
-        submit_connexion = st.form_submit_button("Se connecter")
-
-        if submit_connexion:
-            if (
-                username in st.session_state.utilisateurs
-                and st.session_state.utilisateurs[username]["password"]
-                == password
-            ):
-                st.session_state.user_connecte = username
-                st.success("Connexion réussie !")
-                st.rerun()
-            else:
-                st.error("Nom d'utilisateur ou mot de passe incorrect.")
-
-# --- 2. S'INSCRIRE ---
-elif menu == "S'inscrire":
-    st.markdown("### Créer un compte employé")
-    with st.form("form_inscription"):
-        new_user = st.text_input("Choisissez un nom d'utilisateur")
-        new_pass = st.text_input("Choisissez un mot de passe", type="password")
-        submit_inscription = st.form_submit_button("S'inscrire")
-
-        if submit_inscription:
-            if new_user in st.session_state.utilisateurs:
-                st.warning("Ce nom d'utilisateur existe déjà.")
-            elif new_user == "" or new_pass == "":
-                st.error("Veuillez remplir tous les champs.")
-            else:
-                st.session_state.utilisateurs[new_user] = {
-                    "password": new_pass,
-                    "role": "Employé",
-                }
-                sauvegarder_donnees(
-                    "utilisateurs.json", st.session_state.utilisateurs
-                )
-                st.success("Compte créé avec succès !")
-
-# --- 3. SIGNER MA PRÉSENCE ---
-elif menu == "Signer ma présence":
-    st.markdown(
-        "### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée & Limite 9h00)"
-    )
-
-    maintenant_dt = datetime.now(TZ_LOCAL)
-    if maintenant_dt.time() > HEURE_LIMITE_ARRIVEE:
-        st.error(
-            "⏳ **POINTAGE FERMÉ :** Il est plus de 09h00. Le pointage des arrivées n'est plus autorisé pour aujourd'hui."
-        )
-    else:
-        st.info(
-            "Cliquez sur le bouton ci-dessous pour autoriser la géolocalisation."
-        )
-
-        localisation_js = """
-        <div id="geo-status" style="color: #cbd5e1; margin-bottom: 10px;">📍 En attente de votre position GPS...</div>
-        <button onclick="getLocation()" style="background-color: #00b4d8; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Obtenir ma position GPS</button>
-        <script>
-        function getLocation() {
-            const status = document.getElementById('geo-status');
-            if (!navigator.geolocation) {
-                status.innerHTML = "❌ Non supporté.";
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(success, error, {enableHighAccuracy: true});
-        }
-        function success(position) {
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-            document.getElementById('geo-status').innerHTML = `✅ Position trouvée !`;
-            window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: latitude, lon: longitude}}, '*');
-        }
-        function error() {
-            document.getElementById('geo-status').innerHTML = "❌ Erreur GPS.";
-        }
-        </script>
-        """
-        components.html(localisation_js, height=100)
-
-        with st.form("form_valider_arrivee"):
-            lat_saisie = st.number_input(
-                "Votre Latitude GPS", value=LAT_BUREAU, format="%.6f"
-            )
-            lon_saisie = st.number_input(
-                "Votre Longitude GPS", value=LON_BUREAU, format="%.6f"
-            )
-            valider = st.form_submit_button("Valider mon arrivée officielle")
-
-            if valider:
-                moment_validation = datetime.now(TZ_LOCAL)
-                if moment_validation.time() > HEURE_LIMITE_ARRIVEE:
-                    st.error(
-                        "🚨 **DÉLAI DÉPASSÉ :** Il est maintenant plus de 09h00. Pointage refusé."
-                    )
-                else:
-                    from math import asin, cos, radians, sin, sqrt
-
-                    def calculer_distance(lat1, lon1, lat2, lon2):
-                        R = 6371
-                        dlat = radians(lat2 - lat1)
-                        dlon = radians(lon2 - lon1)
-                        a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(
-                            radians(lat2)
-                        ) * sin(dlon / 2) ** 2
-                        c = 2 * asin(sqrt(a))
-                        return R * c
-
-                    distance = calculer_distance(
-                        lat_saisie, lon_saisie, LAT_BUREAU, LON_BUREAU
-                    )
-
-                    if distance <= RAYON_AUTORISE_KM:
-                        date_jour = moment_validation.strftime("%Y-%m-%d")
-                        heure_arrivee = moment_validation.strftime("%H:%M:%S")
-
-                        deja_pointe = any(
-                            p["employe"] == st.session_state.user_connecte
-                            and p["date"] == date_jour
-                            for p in st.session_state.presences
-                        )
-                        if deja_pointe:
-                            st.warning("Vous avez déjà pointé aujourd'hui !")
-                        else:
-                            nouvelle_presence = {
-                                "employe": st.session_state.user_connecte,
-                                "date": date_jour,
-                                "arrivee": heure_arrivee,
-                                "depart_pause": "Non pointé",
-                                "retour_pause": "Non pointé",
-                                "depart": "En cours",
-                                "temps_travail": "En cours",
-                                "heures_supplementaires": "0h 00m",
-                                "statut": "Présent",
-                            }
-                            st.session_state.presences.append(nouvelle_presence)
-                            sauvegarder_donnees(
-                                "presences.json", st.session_state.presences
-                            )
-                            st.success(f"✅ Arrivée validée à {heure_arrivee}")
-                    else:
-                        st.error(
-                            f"🚨 ACCÈS REFUSÉ : Vous êtes à {distance*1000:.0f} mètres du bureau."
-                        )
-
-# --- 4. DÉPART PAUSE (12h) ---
-elif menu == "Départ Pause (12h)":
-    st.markdown("### 🍔 Pointer mon Départ en Pause (12h00)")
-    date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
-
-    with st.form("form_depart_pause"):
-        submit_dp = st.form_submit_button("Enregistrer mon départ en pause")
-        if submit_dp:
-            # Recherche ou création automatique de la présence du jour
-            p_trouve = None
-            for p in st.session_state.presences:
-                if (
-                    p["employe"] == st.session_state.user_connecte
-                    and p["date"] == date_jour
-                ):
-                    p_trouve = p
-                    break
-
-            if not p_trouve:
-                p_trouve = {
-                    "employe": st.session_state.user_connecte,
-                    "date": date_jour,
-                    "arrivee": "08:00:00",
-                    "depart_pause": "Non pointé",
-                    "retour_pause": "Non pointé",
-                    "depart": "En cours",
-                    "temps_travail": "En cours",
-                    "heures_supplementaires": "0h 00m",
-                    "statut": "Présent",
-                }
-                st.session_state.presences.append(p_trouve)
-
-            if p_trouve.get("depart_pause", "Non pointé") == "Non pointé":
-                heure_dp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
-                p_trouve["depart_pause"] = heure_dp
-                sauvegarder_donnees(
-                    "presences.json", st.session_state.presences
-                )
-                st.success(f"✅ Départ en pause enregistré à {heure_dp}")
-            else:
-                st.info("Vous avez déjà pointé votre départ en pause.")
-
-# --- 5. RETOUR PAUSE (13h) ---
-elif menu == "Retour Pause (13h)":
-    st.markdown("### 💼 Pointer mon Retour de Pause (13h00)")
-    date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
-
-    with st.form("form_retour_pause"):
-        submit_rp = st.form_submit_button("Enregistrer mon retour de pause")
-        if submit_rp:
-            p_trouve = None
-            for p in st.session_state.presences:
-                if (
-                    p["employe"] == st.session_state.user_connecte
-                    and p["date"] == date_jour
-                ):
-                    p_trouve = p
-                    break
-
-            if not p_trouve:
-                p_trouve = {
-                    "employe": st.session_state.user_connecte,
-                    "date": date_jour,
-                    "arrivee": "08:00:00",
-                    "depart_pause": "Non pointé",
-                    "retour_pause": "Non pointé",
-                    "depart": "En cours",
-                    "temps_travail": "En cours",
-                    "heures_supplementaires": "0h 00m",
-                    "statut": "Présent",
-                }
-                st.session_state.presences.append(p_trouve)
-
-            if p_trouve.get("depart_pause", "Non pointé") != "Non pointé":
-                if p_trouve.get("retour_pause", "Non pointé") == "Non pointé":
-                    heure_rp = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
-                    p_trouve["retour_pause"] = heure_rp
-                    sauvegarder_donnees(
-                        "presences.json", st.session_state.presences
-                    )
-                    st.success(f"✅ Retour de pause enregistré à {heure_rp}")
-                else:
-                    st.info("Vous avez déjà pointé votre retour de pause.")
-            else:
-                st.warning("Vous devez d'abord pointer votre départ en pause !")
-
-# --- 6. POINTER MON DÉPART ---
-elif menu == "Pointer mon départ":
-    st.markdown("### 🚪 Pointer mon Départ de fin de journée")
-    date_jour = datetime.now(TZ_LOCAL).strftime("%Y-%m-%d")
-
-    with st.form("form_depart"):
-        submit_depart = st.form_submit_button("Enregistrer mon départ")
-        if submit_depart:
-            # Recherche ou création automatique de la présence du jour si absente
-            p_trouve = None
-            for p in st.session_state.presences:
-                if (
-                    p["employe"] == st.session_state.user_connecte
-                    and p["date"] == date_jour
-                ):
-                    p_trouve = p
-                    break
-
-            if not p_trouve:
-                p_trouve = {
-                    "employe": st.session_state.user_connecte,
-                    "date": date_jour,
-                    "arrivee": "08:00:00",  # Valeur par défaut si arrivée non pointée
-                    "depart_pause": "Non pointé",
-                    "retour_pause": "Non pointé",
-                    "depart": "En cours",
-                    "temps_travail": "En cours",
-                    "heures_supplementaires": "0h 00m",
-                    "statut": "Présent",
-                }
-                st.session_state.presences.append(p_trouve)
-
-            if p_trouve["depart"] == "En cours" or p_trouve["depart"]:
-                heure_depart = datetime.now(TZ_LOCAL).strftime("%H:%M:%S")
-                p_trouve["depart"] = heure_depart
-
-                t_arrivee = datetime.strptime(p_trouve["arrivee"], "%H:%M:%S")
-                t_depart = datetime.strptime(heure_depart, "%H:%M:%S")
-
-                duree_brute = t_depart - t_arrivee
-
-                duree_pause = timedelta(0)
-                dp = p_trouve.get("depart_pause", "Non pointé")
-                rp = p_trouve.get("retour_pause", "Non pointé")
-                if dp != "Non pointé" and rp != "Non pointé":
-                    t_dp = datetime.strptime(dp, "%H:%M:%S")
-                    t_rp = datetime.strptime(rp, "%H:%M:%S")
-                    duree_pause = t_rp - t_dp
-
-                temps_effectif = duree_brute - duree_pause
-                if temps_effectif.total_seconds() < 0:
-                    temps_effectif = timedelta(0)
-
-                p_trouve["temps_travail"] = str(
-                    timedelta(seconds=int(temps_effectif.total_seconds()))
-                )
-
-                secondes_travaillees = temps_effectif.total_seconds()
-                secondes_standard = HEURE_STANDARD_TRAVAIL_HOURS * 3600
-
-                if secondes_travaillees > secondes_standard:
-                    sec_sup = secondes_travaillees - secondes_standard
-                    hrs_sup = int(sec_sup // 3600)
-                    mins_sup = int((sec_sup % 3600) // 60)
-                    p_trouve["heures_supplementaires"] = f"{hrs_sup}h {mins_sup}m"
-                else:
-                    p_trouve["heures_supplementaires"] = "0h 00m"
-
-                sauvegarder_donnees("presences.json", st.session_state.presences)
-                st.success(
-                    f"✅ Départ enregistré ! Temps effectif : **{p_trouve['temps_travail']}** | Heures supp. : **{p_trouve['heures_supplementaires']}**"
-                )
-            else:
-                st.info("Départ déjà pointé.")
-
-# --- 7. TABLEAU DE BORD ADMIN ---
-elif menu == "Tableau de bord Admin" and role_actuel == "Administrateur":
-    st.markdown(
-        "### 📊 Tableau de bord Administrateur - Suivi Hebdomadaire (Lundi au Vendredi)"
-    )
-
-    employes_inscrits = [
-        username
-        for username, data in st.session_state.utilisateurs.items()
-        if data.get("role") == "Employé"
-    ]
-
-    if not employes_inscrits:
-        employes_inscrits = [
-            u for u in st.session_state.utilisateurs.keys() if u != "admin"
-        ]
-
-    if employes_inscrits:
-        auj = datetime.now(TZ_LOCAL).date()
-        debut_semaine = auj - timedelta(days=auj.weekday())
-
-        jours_ouvrables = [
-            (debut_semaine + timedelta(days=i)).strftime("%Y-%m-%d")
-            for i in range(5)
-        ]
-        noms_jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"]
-
-        recap_data = []
-        for emp in employes_inscrits:
-            ligne = {"Employé": emp}
-            for idx, jour in enumerate(jours_ouvrables):
-                nom_col = f"{noms_jours[idx]} ({jour})"
-                pointe = any(
-                    p["employe"] == emp and p["date"] == jour
-                    for p in st.session_state.presences
-                )
-                if jour > auj.strftime("%Y-%m-%d"):
-                    ligne[nom_col] = "⏳ À venir"
-                else:
-                    ligne[nom_col] = (
-                        "✅ Présent" if pointe else "❌ Absent (Manqué)"
-                    )
-            recap_data.append(ligne)
-
-        st.markdown(
-            "#### Grille des présences de la semaine (Lundi - Vendredi) - Tous les employés"
-        )
-        df_recap = pd.DataFrame(recap_data)
-        st.dataframe(df_recap, use_container_width=True)
-
-        st.markdown("---")
-        st.markdown(
-            "#### Historique détaillé des pointages & Heures Supplémentaires"
-        )
-        if st.session_state.presences:
-            df_presences = pd.DataFrame(st.session_state.presences)
-            st.dataframe(df_presences, use_container_width=True)
-
-            csv = df_presences.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="📥 Télécharger l'historique complet (CSV)",
-                data=csv,
-                file_name=f"backup_presences_{datetime.now(TZ_LOCAL).strftime('%Y-%m-%d')}.csv",
-                mime="text/csv",
-            )
-        else:
-            st.info("Aucun pointage enregistré pour l'instant.")
-    else:
-        st.info("Aucun employé inscrit pour le moment.")
