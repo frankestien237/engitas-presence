@@ -27,28 +27,56 @@ if "connecte" not in st.session_state: st.session_state.connecte = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "role" not in st.session_state: st.session_state.role = ""
 
+# Initialisation de la liste des employés en session
+if "employes_list" not in st.session_state:
+    st.session_state.employes_list = [
+        {"nom": "Jean Dupont", "username": "jdupont", "poste": "Non attribué"},
+        {"nom": "Marie Curie", "username": "mcurie", "poste": "Non attribué"},
+    ]
+
 # --- SI L'UTILISATEUR N'EST PAS CONNECTÉ ---
 if not st.session_state.connecte:
     with st.sidebar:
         st.markdown("### **ENGITAS**")
-        st.markdown("Veuillez vous connecter")
+        auth_mode = st.radio("Mode", ["Connexion", "S'inscrire"], label_visibility="collapsed")
     
-    st.markdown("<h2 style='text-align: center;'>Connexion ENGITAS</h2>", unsafe_allow_html=True)
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    username = st.text_input("Nom d'utilisateur")
-    password = st.text_input("Mot de passe", type="password")
-    if st.button("Se connecter"):
-        if username.lower() == "admin" and password == "adminpassword":
-            st.session_state.connecte = True
-            st.session_state.username = username
-            st.session_state.role = "admin"
-            st.rerun()
-        elif username:
-            st.session_state.connecte = True
-            st.session_state.username = username
-            st.session_state.role = "employe"
-            st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+    if auth_mode == "Connexion":
+        st.markdown("<h2 style='text-align: center;'>Connexion ENGITAS</h2>", unsafe_allow_html=True)
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        username = st.text_input("Nom d'utilisateur")
+        password = st.text_input("Mot de passe", type="password")
+        if st.button("Se connecter"):
+            if username.lower() == "admin" and password == "adminpassword":
+                st.session_state.connecte = True
+                st.session_state.username = username
+                st.session_state.role = "admin"
+                st.rerun()
+            elif username:
+                st.session_state.connecte = True
+                st.session_state.username = username
+                st.session_state.role = "employe"
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+    elif auth_mode == "S'inscrire":
+        st.markdown("<h2 style='text-align: center;'>Inscription Employé - ENGITAS</h2>", unsafe_allow_html=True)
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        nom_complet = st.text_input("Nom complet")
+        new_username = st.text_input("Nom d'utilisateur souhaité")
+        new_password = st.text_input("Mot de passe", type="password")
+        
+        if st.button("Créer mon compte"):
+            if nom_complet and new_username and new_password:
+                # Ajout du nouvel employé dans la liste globale
+                st.session_state.employes_list.append({
+                    "nom": nom_complet, 
+                    "username": new_username, 
+                    "poste": "Non attribué"
+                })
+                st.success("Compte créé avec succès ! Vous pouvez maintenant vous connecter.")
+            else:
+                st.error("Veuillez remplir tous les champs.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # --- SI L'UTILISATEUR EST CONNECTÉ ---
 else:
@@ -94,21 +122,13 @@ else:
     elif menu_option == "Gestion des employés":
         st.markdown("### 👥 Gestion des employés & Attribution des postes")
 
-        # Initialisation de la liste des employés en session si elle n'existe pas
-        if "employes_list" not in st.session_state:
-            st.session_state.employes_list = [
-                {"nom": "Jean Dupont", "username": "jdupont", "poste": "Non attribué"},
-                {"nom": "Marie Curie", "username": "mcurie", "poste": "Non attribué"},
-            ]
-
-        # Affichage et modification interactive pour chaque employé
+        # Affichage et modification interactive pour chaque employé inscrit
         for i, emp in enumerate(st.session_state.employes_list):
             col1, col2, col3 = st.columns([2, 2, 2])
             with col1:
                 st.write(f"**Nom:** {emp['nom']} ({emp['username']})")
             with col2:
                 liste_postes = ["Non attribué", "Développeur", "Comptable", "Commercial", "RH"]
-                # Sécurité pour l'index au cas où le poste enregistré ne serait pas dans la liste par défaut
                 try:
                     current_index = liste_postes.index(emp["poste"])
                 except ValueError:
