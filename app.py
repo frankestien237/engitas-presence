@@ -130,7 +130,7 @@ if "role" not in st.session_state:
 if "page_active" not in st.session_state:
     st.session_state.page_active = "Connexion"
 
-# Initialisation des paramètres globaux de configuration (Admin)
+# Paramètres globaux de configuration (Admin)
 if "config_admin" not in st.session_state:
     st.session_state.config_admin = {
         "heure_limite": time(9, 0),
@@ -139,7 +139,7 @@ if "config_admin" not in st.session_state:
         "alerte_retard": True
     }
 
-# Initialisation de la base de données des employés dans le state
+# Initialisation de la base de données des employés avec vérification des inscrits
 if "employes_df" not in st.session_state:
     st.session_state.employes_df = pd.DataFrame([
         {"ID": 1, "Nom": "Arnold Omam", "Utilisateur": "aomam", "Poste": "Développeur Senior", "Rôle": "Employé", "Statut": "Actif"},
@@ -147,28 +147,21 @@ if "employes_df" not in st.session_state:
         {"ID": 3, "Nom": "Jean Dupont", "Utilisateur": "jdupont", "Poste": "Technicien Réseau", "Rôle": "Employé", "Statut": "Actif"}
     ])
 
-# Initialisation de l'historique des pointages fictifs
+# Initialisation de l'historique des pointages
 if "pointages_df" not in st.session_state:
     st.session_state.pointages_df = pd.DataFrame([
         {"Date": "2026-08-19", "Employé": "Arnold Omam", "Arrivée": "08:45", "Pause Début": "12:02", "Pause Fin": "13:00", "Départ": "17:05", "Statut": "À l'heure"},
         {"Date": "2026-08-19", "Employé": "Jean Dupont", "Arrivée": "09:15", "Pause Début": "12:10", "Pause Fin": "13:05", "Départ": "17:00", "Statut": "En retard"},
-        {"Date": "2026-08-18", "Employé": "Arnold Omam", "Arrivée": "08:50", "Pause Début": "12:00", "Pause Fin": "13:00", "Départ": "17:10", "Statut": "À l'heure"},
-        {"Date": "2026-08-18", "Employé": "Jean Dupont", "Arrivée": "08:55", "Pause Début": "12:05", "Pause Fin": "13:00", "Départ": "17:02", "Statut": "À l'heure"},
     ])
 
 # --- SI L'UTILISATEUR N'EST PAS CONNECTÉ ---
 if not st.session_state.connecte:
     with st.sidebar:
         st.markdown("### **ENGITAS**")
-        st.markdown(
-            "<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>", unsafe_allow_html=True)
         st.markdown("---")
         st.markdown("**Navigation**")
-        auth_mode = st.radio(
-            "", ["Connexion", "S'inscrire"], label_visibility="collapsed"
-        )
+        auth_mode = st.radio("", ["Connexion", "S'inscrire"], label_visibility="collapsed")
 
     col_logo, col_menu, col_btn = st.columns([1, 4, 1])
     with col_logo:
@@ -201,17 +194,10 @@ if not st.session_state.connecte:
     st.markdown("<br>", unsafe_allow_html=True)
 
     if st.session_state.page_active == "PresenceGeo":
-        st.markdown(
-            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>PRÉSENCE GÉOGRAPHIQUE</p>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<h1 style='text-align: center; margin-bottom: 40px;'>Nous trouver</h1>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>PRÉSENCE GÉOGRAPHIQUE</p>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; margin-bottom: 40px;'>Nous trouver</h1>", unsafe_allow_html=True)
 
         geo_col1, geo_col2 = st.columns([1.3, 1])
-
         with geo_col1:
             st.markdown(
                 """
@@ -221,7 +207,6 @@ if not st.session_state.connecte:
                 """,
                 unsafe_allow_html=True,
             )
-
         with geo_col2:
             st.markdown(
                 """
@@ -230,11 +215,6 @@ if not st.session_state.connecte:
                     <p><b>Lieu-dit :</b> Chapelle ESSOS</p>
                     <p><b>B.P. :</b> 13820, Yaoundé</p>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                """
                 <div class="location-card">
                     <h4>📍 Douala</h4>
                     <p><b>Lieu-dit :</b> Bali, en face station MRS</p>
@@ -245,10 +225,7 @@ if not st.session_state.connecte:
             )
 
     elif st.session_state.page_active == "Contact":
-        st.markdown(
-            "<h2 style='text-align: center; margin-bottom: 20px;'>📞 Contacts en cas de problème</h2>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<h2 style='text-align: center; margin-bottom: 20px;'>📞 Contacts en cas de problème</h2>", unsafe_allow_html=True)
         st.markdown(
             """
             <div class="login-container" style="text-align: center;">
@@ -269,14 +246,8 @@ if not st.session_state.connecte:
         )
 
     elif st.session_state.page_active == "Ecosysteme":
-        st.markdown(
-            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>ÉCOSYSTÈME</p>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<h1 style='text-align: center; margin-bottom: 10px;'>Partenaires technologiques</h1>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>ÉCOSYSTÈME</p>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>Partenaires technologiques</h1>", unsafe_allow_html=True)
         p1, p2, p3, p4, p5, p6, p7, p8 = st.columns(8)
         with p1: st.markdown('<div class="partner-badge">🪟 Microsoft</div>', unsafe_allow_html=True)
         with p2: st.markdown('<div class="partner-badge">🔵 IBM</div>', unsafe_allow_html=True)
@@ -288,14 +259,8 @@ if not st.session_state.connecte:
         with p8: st.markdown('<div class="partner-badge">🔴 Fortinet</div>', unsafe_allow_html=True)
 
     elif st.session_state.page_active == "Services":
-        st.markdown(
-            "<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>NOS SERVICES</p>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<h1 style='text-align: center; margin-bottom: 10px;'>Des solutions IT complètes et intégrées</h1>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='text-align: center; color: #38bdf8; font-weight: bold; letter-spacing: 2px;'>NOS SERVICES</p>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>Des solutions IT complètes et intégrées</h1>", unsafe_allow_html=True)
         row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
         with row1_col1: st.markdown('<div class="service-card"><h3>🔍</h3><p><b>Audit & Conseil IT</b></p></div>', unsafe_allow_html=True)
         with row1_col2: st.markdown('<div class="service-card"><h3>🌐</h3><p><b>Infrastructure & Réseau</b></p></div>', unsafe_allow_html=True)
@@ -304,10 +269,7 @@ if not st.session_state.connecte:
 
     else:
         if auth_mode == "Connexion":
-            st.markdown(
-                "<h2 style='text-align: center; margin-bottom: 30px;'>Connexion à votre compte ENGITAS</h2>",
-                unsafe_allow_html=True,
-            )
+            st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Connexion à votre compte ENGITAS</h2>", unsafe_allow_html=True)
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
             username = st.text_input("Nom d'utilisateur", placeholder="Nom d'utilisateur")
             password = st.text_input("Mot de passe", type="password", placeholder="Mot de passe")
@@ -329,10 +291,7 @@ if not st.session_state.connecte:
                     st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.markdown(
-                "<h2 style='text-align: center; margin-bottom: 30px;'>Inscription - ENGITAS</h2>",
-                unsafe_allow_html=True,
-            )
+            st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Inscription - ENGITAS</h2>", unsafe_allow_html=True)
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
             nom_inscrit = st.text_input("Nom complet", placeholder="Votre nom")
             user_inscrit = st.text_input("Nouvel utilisateur", placeholder="Nom d'utilisateur")
@@ -340,7 +299,7 @@ if not st.session_state.connecte:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("S'inscrire"):
                 if nom_inscrit and user_inscrit and pwd_inscrit:
-                    # Ajout automatique du nouvel inscrit dans la liste des employés
+                    # Ajout automatique du nouvel inscrit dans le DataFrame global des employés
                     nouvel_id = len(st.session_state.employes_df) + 1
                     nouvel_employe = {
                         "ID": nouvel_id,
@@ -353,25 +312,20 @@ if not st.session_state.connecte:
                     st.session_state.employes_df = pd.concat([st.session_state.employes_df, pd.DataFrame([nouvel_employe])], ignore_index=True)
                     st.success("Compte créé avec succès et ajouté à la base ! Vous pouvez vous connecter.")
                 else:
-                    st.warning("Veuillez remplir tous les champs pour vous inscrire.")
+                    st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
 
 # --- SI L'UTILISATEUR EST CONNECTÉ ---
 else:
     with st.sidebar:
         st.markdown("### **ENGITAS**")
-        st.markdown(
-            "<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>", unsafe_allow_html=True)
         st.markdown("---")
-        st.markdown(
-            f"👤 **Connecté :**\n<span style='color: #38bdf8;'>{st.session_state.username}</span>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"👤 **Connecté :**\n<span style='color: #38bdf8;'>{st.session_state.username}</span>", unsafe_allow_html=True)
         st.markdown("---")
         st.markdown("**Navigation**")
 
+        # Menu spécifique selon le rôle (Admin ou Employé)
         if st.session_state.role == "admin":
             options_menu = [
                 "Tableau de bord",
@@ -388,9 +342,7 @@ else:
                 "Déconnexion",
             ]
 
-        menu_option = st.radio(
-            "", options_menu, label_visibility="collapsed"
-        )
+        menu_option = st.radio("", options_menu, label_visibility="collapsed")
 
         if menu_option == "Déconnexion":
             st.session_state.connecte = False
@@ -407,12 +359,8 @@ else:
     st.markdown("<br>", unsafe_allow_html=True)
 
     if menu_option == "Signer ma présence":
-        st.markdown(
-            "### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée & Limite 9h00)"
-        )
-        st.error(
-            "⏳ POINTAGE FERMÉ : Il est plus de 09h00. Le pointage des arrivées n'est plus autorisé pour aujourd'hui."
-        )
+        st.markdown("### 📝 Pointer mon Arrivée (Géolocalisation GPS Sécurisée & Limite 9h00)")
+        st.error("⏳ POINTAGE FERMÉ : Il est plus de 09h00. Le pointage des arrivées n'est plus autorisé pour aujourd'hui.")
         
     elif menu_option == "Tableau de bord":
         st.markdown("### 📊 Tableau de bord de présence")
@@ -445,47 +393,31 @@ else:
 
         st.markdown("#### Historique détaillé des pointages")
         st.dataframe(df_affichage, use_container_width=True, hide_index=True)
-        
-        st.markdown("#### Tendance des présences sur la semaine")
-        chart_data = pd.DataFrame({
-            "Jour": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"],
-            "À l'heure": [3, 4, 3, 0, 0],
-            "En retard": [1, 0, 1, 0, 0]
-        }).set_index("Jour")
-        st.bar_chart(chart_data)
 
     elif menu_option == "Départ Pause (12h)":
         st.markdown("### ☕ Validation - Départ en Pause (12h)")
-        st.markdown("<p style='color: #9ca3af;'>Enregistrez votre départ pour la pause déjeuner.</p>", unsafe_allow_html=True)
-        
         if st.button("Valider mon départ en pause"):
             heure_actuelle = datetime.now().strftime("%H:%M")
             date_du_jour = datetime.now().strftime("%Y-%m-%d")
-            
             nouvelle_ligne = {"Date": date_du_jour, "Employé": st.session_state.username.capitalize(), "Arrivée": "08:30", "Pause Début": heure_actuelle, "Pause Fin": "--:--", "Départ": "--:--", "Statut": "À l'heure"}
             st.session_state.pointages_df = pd.concat([pd.DataFrame([nouvelle_ligne]), st.session_state.pointages_df], ignore_index=True)
-            
             st.success(f"✅ Départ en pause validé avec succès à {heure_actuelle} !")
 
     elif menu_option == "Retour Pause (13h)":
         st.markdown("### 💻 Validation - Retour de Pause (13h)")
-        st.markdown("<p style='color: #9ca3af;'>Enregistrez votre retour de pause déjeuner.</p>", unsafe_allow_html=True)
-        
         if st.button("Valider mon retour de pause"):
             heure_actuelle = datetime.now().strftime("%H:%M")
-            st.success(f"✅ Retour de pause validé avec succès à {heure_actuelle} ! Bon retour au travail.")
+            st.success(f"✅ Retour de pause validé avec succès à {heure_actuelle} !")
 
     elif menu_option == "Pointer mon départ":
         st.markdown("### 🚪 Validation - Départ de la Journée")
-        st.markdown("<p style='color: #9ca3af;'>Clôturez votre journée de travail en pointant votre départ.</p>", unsafe_allow_html=True)
-        
         if st.button("Valider mon départ"):
             heure_actuelle = datetime.now().strftime("%H:%M")
-            st.success(f"✅ Départ de la journée enregistré à {heure_actuelle}. Passez une excellente soirée !")
+            st.success(f"✅ Départ de la journée enregistré à {heure_actuelle}.")
 
     elif menu_option == "Gestion des employés":
-        st.markdown("### 👥 Gestion des employés (Admin)")
-        st.markdown("<p style='color: #9ca3af;'>Liste de tous les employés enregistrés (y compris les nouveaux inscrits).</p>", unsafe_allow_html=True)
+        st.markdown("### 👥 Gestion des employés inscrits (Admin)")
+        st.markdown("<p style='color: #9ca3af;'>Liste complète de tous les employés et inscrits de la plateforme :</p>", unsafe_allow_html=True)
         edited_df = st.data_editor(
             st.session_state.employes_df,
             num_rows="dynamic",
@@ -498,14 +430,13 @@ else:
             st.success("La base des employés a été mise à jour avec succès !")
 
     elif menu_option == "Admin":
-        st.markdown("### ⚙️ Paramètres et Liste des inscrits (Admin)")
+        st.markdown("### ⚙️ Liste des employés inscrits & Paramètres de l'application (Admin)")
         
-        # Affichage rapide de la liste des noms inscrits dans la section Admin
-        st.markdown("#### 📋 Liste des utilisateurs enregistrés")
+        st.markdown("#### 📋 Répertoire des noms inscrits")
         st.dataframe(st.session_state.employes_df[["ID", "Nom", "Utilisateur", "Rôle", "Statut"]], use_container_width=True, hide_index=True)
         
         st.markdown("---")
-        st.markdown("#### 🛠️ Paramètres de l'application")
+        st.markdown("#### 🛠️ Configuration générale")
         with st.form("form_admin_params"):
             col_p1, col_p2 = st.columns(2)
             with col_p1:
@@ -520,7 +451,7 @@ else:
                 st.session_state.config_admin["rayon_gps"] = new_rayon_gps
                 st.success("Paramètres mis à jour avec succès !")
 
-# --- PIED DE PAGE FIXE EN BAS ---
+# --- PIED DE PAGE ---
 st.markdown(
     """
     <div class="footer">
