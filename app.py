@@ -139,7 +139,7 @@ if "config_admin" not in st.session_state:
         "alerte_retard": True
     }
 
-# Initialisation de la base de données des employés avec vérification des inscrits
+# Initialisation de la base de données des employés
 if "employes_df" not in st.session_state:
     st.session_state.employes_df = pd.DataFrame([
         {"ID": 1, "Nom": "Arnold Omam", "Utilisateur": "aomam", "Poste": "Développeur Senior", "Rôle": "Employé", "Statut": "Actif"},
@@ -277,9 +277,10 @@ if not st.session_state.connecte:
 
             if st.button("Se connecter"):
                 if username and password:
-                    if username.lower() == "admin" and password == "adminpassword":
+                    # Attribution stricte et explicite du rôle admin ou employé
+                    if username.strip().lower() == "admin" and password == "adminpassword":
                         st.session_state.connecte = True
-                        st.session_state.username = username
+                        st.session_state.username = "admin"
                         st.session_state.role = "admin"
                         st.rerun()
                     else:
@@ -299,7 +300,6 @@ if not st.session_state.connecte:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("S'inscrire"):
                 if nom_inscrit and user_inscrit and pwd_inscrit:
-                    # Ajout automatique du nouvel inscrit dans le DataFrame global des employés
                     nouvel_id = len(st.session_state.employes_df) + 1
                     nouvel_employe = {
                         "ID": nouvel_id,
@@ -310,7 +310,7 @@ if not st.session_state.connecte:
                         "Statut": "Actif"
                     }
                     st.session_state.employes_df = pd.concat([st.session_state.employes_df, pd.DataFrame([nouvel_employe])], ignore_index=True)
-                    st.success("Compte créé avec succès et ajouté à la base ! Vous pouvez vous connecter.")
+                    st.success("Compte créé avec succès ! Vous pouvez vous connecter.")
                 else:
                     st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -325,7 +325,7 @@ else:
         st.markdown("---")
         st.markdown("**Navigation**")
 
-        # Menu spécifique selon le rôle (Admin ou Employé)
+        # Vérification robuste du rôle pour afficher le menu Admin ou Employé
         if st.session_state.role == "admin":
             options_menu = [
                 "Tableau de bord",
