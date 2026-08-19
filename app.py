@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 # Configuration de la page
 st.set_page_config(
@@ -88,29 +89,6 @@ st.markdown(
         font-size: 14px;
         border: 1px solid #e5e7eb;
     }
-    .trust-card {
-        background-color: #ffffff;
-        color: #111827;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        margin-bottom: 20px;
-        border: 1px solid #e5e7eb;
-        height: 110px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    .trust-card h4 {
-        color: #111827;
-        margin: 0 0 5px 0;
-        font-size: 16px;
-    }
-    .trust-card p {
-        color: #6b7280;
-        margin: 0;
-        font-size: 13px;
-    }
     .service-card {
         background-color: #111827;
         border: 1px solid #1f2937;
@@ -154,6 +132,15 @@ if "role" not in st.session_state:
 if "page_active" not in st.session_state:
     st.session_state.page_active = "Connexion"
 
+# Initialisation de la liste des employés en session pour le tableau interactif
+if "employes_df" not in st.session_state:
+    st.session_state.employes_df = pd.DataFrame([
+        {"ID": 1, "Nom": "Arnold Omam", "Utilisateur": "aomam", "Poste": "Développeur Senior", "Rôle": "Employé", "Statut": "Actif"},
+        {"ID": 2, "Nom": "Valere Feugwang", "Utilisateur": "vfeugwang", "Poste": "Directeur Général", "Rôle": "Admin", "Statut": "Actif"},
+        {"ID": 3, "Nom": "Jean Dupont", "Utilisateur": "jdupont", "Poste": "Technicien Réseau", "Rôle": "Employé", "Statut": "Actif"},
+        {"ID": 4, "Nom": "Marie Claire", "Utilisateur": "mclaire", "Poste": "Support Client", "Rôle": "Employé", "Statut": "Inactif"}
+    ])
+
 # --- SI L'UTILISATEUR N'EST PAS CONNECTÉ ---
 if not st.session_state.connecte:
     with st.sidebar:
@@ -168,7 +155,7 @@ if not st.session_state.connecte:
             "", ["Connexion", "S'inscrire"], label_visibility="collapsed"
         )
 
-    # En-tête supérieur avec menu complet (Accueil, Services, Écosystème, Contact, Présence géographique)
+    # En-tête supérieur avec menu complet
     col_logo, col_menu, col_btn = st.columns([1, 4, 1])
     with col_logo:
         st.markdown("### 🌐 ENGITAS")
@@ -446,8 +433,24 @@ else:
         st.markdown("### 📊 Tableau de bord de présence")
         st.info("Ici s'affiche l'historique de vos pointages.")
     elif menu_option == "Gestion des employés":
-        st.markdown("### 👥 Gestion des employés (Admin)")
-        st.info("Interface d'administration des comptes employés.")
+        st.markdown("### 👥 Gestion des employés & Attributions des postes")
+        st.markdown("<p style='color: #9ca3af;'>Modifiez directement les informations, les postes ou les rôles des collaborateurs ci-dessous :</p>", unsafe_allow_html=True)
+        
+        # Tableau interactif modifiable (Data Editor)
+        st.session_state.employes_df = st.data_editor(
+            st.session_state.employes_df,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="editeur_employes"
+        )
+        
+        col_save, col_info = st.columns([1, 2])
+        with col_save:
+            if st.button("💾 Enregistrer les modifications"):
+                st.success("Les attributions de postes et de comptes ont été mises à jour avec succès !")
+        with col_info:
+            st.markdown("<p style='font-size: 13px; color: #9ca3af; padding-top: 10px;'>💡 Astuce : Vous pouvez ajouter une ligne, modifier un poste ou changer un rôle directement dans les cellules du tableau.</p>", unsafe_allow_html=True)
+
     else:
         st.markdown(f"### Section : {menu_option}")
         st.info(
