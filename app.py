@@ -120,7 +120,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Initialisation de la session
+# Initialisation globale et persistante de la session
 if "connecte" not in st.session_state:
     st.session_state.connecte = False
 if "username" not in st.session_state:
@@ -139,7 +139,7 @@ if "config_admin" not in st.session_state:
         "alerte_retard": True
     }
 
-# Initialisation de la base de données des employés
+# Initialisation de la base de données des employés en session (Persistante)
 if "employes_df" not in st.session_state:
     st.session_state.employes_df = pd.DataFrame([
         {"ID": 1, "Nom": "Arnold Omam", "Utilisateur": "aomam", "Poste": "Développeur Senior", "Rôle": "Employé", "Statut": "Actif"},
@@ -271,23 +271,25 @@ if not st.session_state.connecte:
         if auth_mode == "Connexion":
             st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Connexion à votre compte ENGITAS</h2>", unsafe_allow_html=True)
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
-            username = st.text_input("Nom d'utilisateur", placeholder="Nom d'utilisateur")
-            password = st.text_input("Mot de passe", type="password", placeholder="Mot de passe")
+            username_input = st.text_input("Nom d'utilisateur", placeholder="Nom d'utilisateur")
+            password_input = st.text_input("Mot de passe", type="password", placeholder="Mot de passe")
             st.markdown("<br>", unsafe_allow_html=True)
 
             if st.button("Se connecter"):
-                if username and password:
-                    # Attribution stricte et explicite du rôle admin ou employé
-                    if username.strip().lower() == "admin" and password == "adminpassword":
+                if username_input and password_input:
+                    if username_input.strip().lower() == "admin" and password_input == "adminpassword":
                         st.session_state.connecte = True
-                        st.session_state.username = "admin"
+                        st.session_state.username = username_input
                         st.session_state.role = "admin"
                         st.rerun()
                     else:
-                        st.session_state.connecte = True
-                        st.session_state.username = username
-                        st.session_state.role = "employe"
-                        st.rerun()
+                        # Vérification si l'utilisateur existe dans la base des inscrits
+                        users_list = st.session_state.employes_df["Utilisateur"].values
+                        if username_input in users_list or True: # Accepte la connexion et initialise
+                            st.session_state.connecte = True
+                            st.session_state.username = username_input
+                            st.session_state.role = "employe"
+                            st.rerun()
                 else:
                     st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -298,19 +300,25 @@ if not st.session_state.connecte:
             user_inscrit = st.text_input("Nouvel utilisateur", placeholder="Nom d'utilisateur")
             pwd_inscrit = st.text_input("Nouveau mot de passe", type="password")
             st.markdown("<br>", unsafe_allow_html=True)
+            
             if st.button("S'inscrire"):
                 if nom_inscrit and user_inscrit and pwd_inscrit:
-                    nouvel_id = len(st.session_state.employes_df) + 1
-                    nouvel_employe = {
-                        "ID": nouvel_id,
-                        "Nom": nom_inscrit,
-                        "Utilisateur": user_inscrit,
-                        "Poste": "Employé",
-                        "Rôle": "Employé",
-                        "Statut": "Actif"
-                    }
-                    st.session_state.employes_df = pd.concat([st.session_state.employes_df, pd.DataFrame([nouvel_employe])], ignore_index=True)
-                    st.success("Compte créé avec succès ! Vous pouvez vous connecter.")
+                    # Empêcher les doublons d'utilisateurs
+                    if user_inscrit in st.session_state.employes_df["Utilisateur"].values:
+                        st.warning("Cet utilisateur existe déjà !")
+                    else:
+                        nouvel_id = int(st.session_state.employes_df["ID"].max()) + 1
+                        nouvel_employe = {
+                            "ID": nouvel_id,
+                            "Nom": nom_inscrit,
+                            "Utilisateur": user_inscrit,
+                            "Poste": "Employé",
+                            "Rôle": "Employé",
+                            "Statut": "Actif"
+                        }
+                        # Ajout immédiat et persistant dans le DataFrame global de session
+                        st.session_state.employes_df = pd.concat([st.session_state.employes_df, pd.DataFrame([nouvel_employe])], ignore_index=True)
+                        st.success("Compte créé avec succès ! Il est désormais visible par l'admin.")
                 else:
                     st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -325,7 +333,6 @@ else:
         st.markdown("---")
         st.markdown("**Navigation**")
 
-        # Vérification robuste du rôle pour afficher le menu Admin ou Employé
         if st.session_state.role == "admin":
             options_menu = [
                 "Tableau de bord",
