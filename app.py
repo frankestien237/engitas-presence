@@ -38,10 +38,32 @@ if "employes_list" not in st.session_state:
 if not st.session_state.connecte:
     with st.sidebar:
         st.markdown("### **ENGITAS**")
-        auth_mode = st.radio("Mode", ["Connexion", "S'inscrire"], label_visibility="collapsed")
-    
+        st.markdown("<p style='color: #9ca3af; font-size: 14px;'>Sécurité & Pointage GPS</p>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("**Navigation**")
+        auth_mode = st.radio("", ["Connexion", "S'inscrire"], label_visibility="collapsed")
+
+    # Barre supérieure avec les options (Accueil, Services, etc.)
+    col_logo, c1, c2, c3, c4, c5, col_btn = st.columns([1.5, 0.8, 0.8, 0.9, 0.9, 0.8, 1.2])
+    with col_logo:
+        st.markdown("### 🌐 ENGITAS")
+    with c1:
+        st.button("Accueil")
+    with c2:
+        st.button("Services")
+    with c3:
+        st.button("Écosystème")
+    with c4:
+        st.button("Présence géo")
+    with c5:
+        st.button("Contact")
+    with col_btn:
+        st.button("Demander un devis")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     if auth_mode == "Connexion":
-        st.markdown("<h2 style='text-align: center;'>Connexion ENGITAS</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Connexion à votre compte ENGITAS</h2>", unsafe_allow_html=True)
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         username = st.text_input("Nom d'utilisateur")
         password = st.text_input("Mot de passe", type="password")
@@ -67,7 +89,6 @@ if not st.session_state.connecte:
         
         if st.button("Créer mon compte"):
             if nom_complet and new_username and new_password:
-                # Ajout du nouvel employé dans la liste globale
                 st.session_state.employes_list.append({
                     "nom": nom_complet, 
                     "username": new_username, 
@@ -122,7 +143,6 @@ else:
     elif menu_option == "Gestion des employés":
         st.markdown("### 👥 Gestion des employés & Attribution des postes")
 
-        # Affichage et modification interactive pour chaque employé inscrit
         for i, emp in enumerate(st.session_state.employes_list):
             col1, col2, col3 = st.columns([2, 2, 2])
             with col1:
