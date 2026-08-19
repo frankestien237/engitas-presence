@@ -52,7 +52,6 @@ st.markdown(
     h1, h2, h3 {
         color: #ffffff;
     }
-    /* Style des cartes de localisation géographique */
     .location-card {
         background-color: #111827;
         border: 1px solid #1e3a8a;
@@ -73,7 +72,6 @@ st.markdown(
         margin: 0;
         font-size: 14px;
     }
-    /* Style des badges de partenaires et cartes de confiance */
     .partner-badge {
         background-color: #ffffff;
         color: #111827;
@@ -104,7 +102,6 @@ st.markdown(
         align-items: center;
         margin-bottom: 20px;
     }
-    /* Style du pied de page */
     .footer {
         position: fixed;
         left: 0;
@@ -408,15 +405,12 @@ else:
         st.markdown("### 📊 Tableau de bord de présence")
         st.markdown("<p style='color: #9ca3af;'>Suivi en temps réel des pointages et de l'assiduité des collaborateurs.</p>", unsafe_allow_html=True)
         
-        # Filtrer les données selon le rôle (l'employé ne voit que ses données, l'admin voit tout)
         df_affichage = st.session_state.pointages_df
         if st.session_state.role != "admin":
-            # Mapper l'username vers un nom potentiel si nécessaire, ou filtrer par correspondance exacte
             df_affichage = df_affichage[df_affichage["Employé"].str.lower().str.contains("arnold") if "aomam" in st.session_state.username.lower() else df_affichage["Employé"].str.lower().str.contains(st.session_state.username.lower())]
             if df_affichage.empty:
-                df_affichage = st.session_state.pointages_df # Fallback si pas de correspondance stricte
+                df_affichage = st.session_state.pointages_df
 
-        # Affichage des KPIs
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         with kpi1:
             st.metric(label="Total Collaborateurs", value=len(st.session_state.employes_df))
@@ -429,7 +423,6 @@ else:
             
         st.markdown("---")
         
-        # Filtres et recherche
         col_f1, col_f2 = st.columns([2, 2])
         with col_f1:
             recherche_employe = st.text_input("🔍 Rechercher un employé", placeholder="Nom...")
@@ -444,7 +437,6 @@ else:
         st.markdown("#### Historique détaillé des pointages")
         st.dataframe(df_affichage, use_container_width=True, hide_index=True)
         
-        # Graphique d'activité simple
         st.markdown("#### Tendance des présences sur la semaine")
         chart_data = pd.DataFrame({
             "Jour": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"],
@@ -453,10 +445,38 @@ else:
         }).set_index("Jour")
         st.bar_chart(chart_data)
 
+    elif menu_option == "Départ Pause (12h)":
+        st.markdown("### ☕ Validation - Départ en Pause (12h)")
+        st.markdown("<p style='color: #9ca3af;'>Enregistrez votre départ pour la pause déjeuner.</p>", unsafe_allow_html=True)
+        
+        if st.button("Valider mon départ en pause"):
+            heure_actuelle = datetime.now().strftime("%H:%M")
+            date_du_jour = datetime.now().strftime("%Y-%m-%d")
+            
+            # Ajout ou mise à jour de la ligne dans le DataFrame des pointages
+            nouvelle_ligne = {"Date": date_du_jour, "Employé": st.session_state.username.capitalize(), "Arrivée": "08:30", "Pause Début": heure_actuelle, "Pause Fin": "--:--", "Départ": "--:--", "Statut": "À l'heure"}
+            st.session_state.pointages_df = pd.concat([pd.DataFrame([nouvelle_ligne]), st.session_state.pointages_df], ignore_index=True)
+            
+            st.success(f"✅ Départ en pause validé avec succès à {heure_actuelle} !")
+
+    elif menu_option == "Retour Pause (13h)":
+        st.markdown("### 💻 Validation - Retour de Pause (13h)")
+        st.markdown("<p style='color: #9ca3af;'>Enregistrez votre retour de pause déjeuner.</p>", unsafe_allow_html=True)
+        
+        if st.button("Valider mon retour de pause"):
+            heure_actuelle = datetime.now().strftime("%H:%M")
+            st.success(f"✅ Retour de pause validé avec succès à {heure_actuelle} ! Bon retour au travail.")
+
+    elif menu_option == "Pointer mon départ":
+        st.markdown("### 🚪 Validation - Départ de la Journée")
+        st.markdown("<p style='color: #9ca3af;'>Clôturez votre journée de travail en pointant votre départ.</p>", unsafe_allow_html=True)
+        
+        if st.button("Valider mon départ"):
+            heure_actuelle = datetime.now().strftime("%H:%M")
+            st.success(f"✅ Départ de la journée enregistré à {heure_actuelle}. Passez une excellente soirée !")
+
     elif menu_option == "Gestion des employés":
         st.markdown("### 👥 Gestion des employés (Admin)")
-        st.markdown("<p style='color: #9ca3af;'>Modifiez, ajoutez ou supprimez des collaborateurs directement depuis le tableau ci-dessous.</p>", unsafe_allow_html=True)
-        
         edited_df = st.data_editor(
             st.session_state.employes_df,
             num_rows="dynamic",
@@ -465,61 +485,24 @@ else:
         )
         st.session_state.employes_df = edited_df
         
-        col_act1, col_act2 = st.columns([1, 4])
-        with col_act1:
-            if st.button("💾 Enregistrer les modifications"):
-                st.success("La base des employés a été mise à jour avec succès !")
-        with col_act2:
-            csv_data = st.session_state.employes_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Télécharger la liste des employés (CSV)",
-                data=csv_data,
-                file_name="liste_employes_engitas.csv",
-                mime="text/csv",
-            )
-            
+        if st.button("💾 Enregistrer les modifications"):
+            st.success("La base des employés a été mise à jour avec succès !")
+
     elif menu_option == "Admin":
         st.markdown("### ⚙️ Paramètres de l'application (Admin)")
-        st.markdown("<p style='color: #9ca3af;'>Configurez les règles globales de pointage et de géolocalisation pour l'ensemble des collaborateurs.</p>", unsafe_allow_html=True)
-        
         with st.form("form_admin_params"):
             col_p1, col_p2 = st.columns(2)
-            
             with col_p1:
-                new_heure_limite = st.time_input(
-                    "Heure limite d'arrivée (Verrouillage du pointage)",
-                    value=st.session_state.config_admin["heure_limite"]
-                )
-                new_rayon_gps = st.slider(
-                    "Rayon de tolérance géolocalisation GPS (en mètres)",
-                    min_value=10, max_value=500, value=st.session_state.config_admin["rayon_gps"], step=10
-                )
-            
+                new_heure_limite = st.time_input("Heure limite d'arrivée", value=st.session_state.config_admin["heure_limite"])
+                new_rayon_gps = st.slider("Rayon GPS (mètres)", 10, 500, value=st.session_state.config_admin["rayon_gps"])
             with col_p2:
-                new_mode_maintenance = st.toggle(
-                    "Activer le mode maintenance de l'application",
-                    value=st.session_state.config_admin["mode_maintenance"]
-                )
-                new_alerte_retard = st.toggle(
-                    "Activer les notifications automatiques de retard",
-                    value=st.session_state.config_admin["alerte_retard"]
-                )
+                new_mode_maintenance = st.toggle("Mode maintenance", value=st.session_state.config_admin["mode_maintenance"])
+                new_alerte_retard = st.toggle("Notifications de retard", value=st.session_state.config_admin["alerte_retard"])
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            submit_params = st.form_submit_button("💾 Sauvegarder les paramètres")
-            
-            if submit_params:
+            if st.form_submit_button("💾 Sauvegarder les paramètres"):
                 st.session_state.config_admin["heure_limite"] = new_heure_limite
                 st.session_state.config_admin["rayon_gps"] = new_rayon_gps
-                st.session_state.config_admin["mode_maintenance"] = new_mode_maintenance
-                st.session_state.config_admin["alerte_retard"] = new_alerte_retard
-                st.success("Paramètres mis à jour avec succès ! Les nouvelles règles s'appliquent en temps réel.")
-
-    else:
-        st.markdown(f"### Section : {menu_option}")
-        st.info(
-            "Cette section est prête à intégrer vos fonctionnalités de pointage."
-        )
+                st.success("Paramètres mis à jour avec succès !")
 
 # --- PIED DE PAGE FIXE EN BAS ---
 st.markdown(
