@@ -156,6 +156,15 @@ if "role" not in st.session_state:
 if "page_active" not in st.session_state:
     st.session_state.page_active = "Connexion"
 
+# Initialisation des paramètres globaux de configuration (Admin)
+if "config_admin" not in st.session_state:
+    st.session_state.config_admin = {
+        "heure_limite": time(9, 0),
+        "rayon_gps": 50,
+        "mode_maintenance": False,
+        "alerte_retard": True
+    }
+
 # Initialisation de la base de données des employés dans le state
 if "employes_df" not in st.session_state:
     st.session_state.employes_df = pd.DataFrame([
@@ -414,15 +423,12 @@ else:
         st.markdown("### 👥 Gestion des employés (Admin)")
         st.markdown("<p style='color: #9ca3af;'>Modifiez, ajoutez ou supprimez des collaborateurs directement depuis le tableau ci-dessous.</p>", unsafe_allow_html=True)
         
-        # Tableau éditable interactif
         edited_df = st.data_editor(
             st.session_state.employes_df,
             num_rows="dynamic",
             use_container_width=True,
             key="employee_editor"
         )
-        
-        # Mettre à jour l'état de la session avec les modifications
         st.session_state.employes_df = edited_df
         
         col_act1, col_act2 = st.columns([1, 4])
@@ -430,7 +436,6 @@ else:
             if st.button("💾 Enregistrer les modifications"):
                 st.success("La base des employés a été mise à jour avec succès !")
         with col_act2:
-            # Option d'exportation des données employés en CSV
             csv_data = st.session_state.employes_df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Télécharger la liste des employés (CSV)",
@@ -439,6 +444,43 @@ else:
                 mime="text/csv",
             )
             
+    elif menu_option == "Admin":
+        st.markdown("### ⚙️ Paramètres de l'application (Admin)")
+        st.markdown("<p style='color: #9ca3af;'>Configurez les règles globales de pointage et de géolocalisation pour l'ensemble des collaborateurs.</p>", unsafe_allow_html=True)
+        
+        with st.form("form_admin_params"):
+            col_p1, col_p2 = st.columns(2)
+            
+            with col_p1:
+                new_heure_limite = st.time_input(
+                    "Heure limite d'arrivée (Verrouillage du pointage)",
+                    value=st.session_state.config_admin["heure_limite"]
+                )
+                new_rayon_gps = st.slider(
+                    "Rayon de tolérance géolocalisation GPS (en mètres)",
+                    min_value=10, max_value=500, value=st.session_state.config_admin["rayon_gps"], step=10
+                )
+            
+            with col_p2:
+                new_mode_maintenance = st.toggle(
+                    "Activer le mode maintenance de l'application",
+                    value=st.session_state.config_admin["mode_maintenance"]
+                )
+                new_alerte_retard = st.toggle(
+                    "Activer les notifications automatiques de retard",
+                    value=st.session_state.config_admin["alerte_retard"]
+                )
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit_params = st.form_submit_button("💾 Sauvegarder les paramètres")
+            
+            if submit_params:
+                st.session_state.config_admin["heure_limite"] = new_heure_limite
+                st.session_state.config_admin["rayon_gps"] = new_rayon_gps
+                st.session_state.config_admin["mode_maintenance"] = new_mode_maintenance
+                st.session_state.config_admin["alerte_retard"] = new_alerte_retard
+                st.success("Paramètres mis à jour avec succès ! Les nouvelles règles s'appliquent en temps réel.")
+
     else:
         st.markdown(f"### Section : {menu_option}")
         st.info(
