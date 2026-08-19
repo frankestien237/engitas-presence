@@ -334,12 +334,26 @@ if not st.session_state.connecte:
                 unsafe_allow_html=True,
             )
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
-            st.text_input("Nom complet", placeholder="Votre nom")
-            st.text_input("Nouvel utilisateur", placeholder="Nom d'utilisateur")
-            st.text_input("Nouveau mot de passe", type="password")
+            nom_inscrit = st.text_input("Nom complet", placeholder="Votre nom")
+            user_inscrit = st.text_input("Nouvel utilisateur", placeholder="Nom d'utilisateur")
+            pwd_inscrit = st.text_input("Nouveau mot de passe", type="password")
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("S'inscrire"):
-                st.success("Compte créé avec succès ! Vous pouvez vous connecter.")
+                if nom_inscrit and user_inscrit and pwd_inscrit:
+                    # Ajout automatique du nouvel inscrit dans la liste des employés
+                    nouvel_id = len(st.session_state.employes_df) + 1
+                    nouvel_employe = {
+                        "ID": nouvel_id,
+                        "Nom": nom_inscrit,
+                        "Utilisateur": user_inscrit,
+                        "Poste": "Employé",
+                        "Rôle": "Employé",
+                        "Statut": "Actif"
+                    }
+                    st.session_state.employes_df = pd.concat([st.session_state.employes_df, pd.DataFrame([nouvel_employe])], ignore_index=True)
+                    st.success("Compte créé avec succès et ajouté à la base ! Vous pouvez vous connecter.")
+                else:
+                    st.warning("Veuillez remplir tous les champs pour vous inscrire.")
             st.markdown("</div>", unsafe_allow_html=True)
 
 # --- SI L'UTILISATEUR EST CONNECTÉ ---
@@ -368,7 +382,6 @@ else:
         else:
             options_menu = [
                 "Signer ma présence",
-                "Tableau de bord",
                 "Départ Pause (12h)",
                 "Retour Pause (13h)",
                 "Pointer mon départ",
@@ -406,10 +419,6 @@ else:
         st.markdown("<p style='color: #9ca3af;'>Suivi en temps réel des pointages et de l'assiduité des collaborateurs.</p>", unsafe_allow_html=True)
         
         df_affichage = st.session_state.pointages_df
-        if st.session_state.role != "admin":
-            df_affichage = df_affichage[df_affichage["Employé"].str.lower().str.contains("arnold") if "aomam" in st.session_state.username.lower() else df_affichage["Employé"].str.lower().str.contains(st.session_state.username.lower())]
-            if df_affichage.empty:
-                df_affichage = st.session_state.pointages_df
 
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         with kpi1:
@@ -453,7 +462,6 @@ else:
             heure_actuelle = datetime.now().strftime("%H:%M")
             date_du_jour = datetime.now().strftime("%Y-%m-%d")
             
-            # Ajout ou mise à jour de la ligne dans le DataFrame des pointages
             nouvelle_ligne = {"Date": date_du_jour, "Employé": st.session_state.username.capitalize(), "Arrivée": "08:30", "Pause Début": heure_actuelle, "Pause Fin": "--:--", "Départ": "--:--", "Statut": "À l'heure"}
             st.session_state.pointages_df = pd.concat([pd.DataFrame([nouvelle_ligne]), st.session_state.pointages_df], ignore_index=True)
             
@@ -477,6 +485,7 @@ else:
 
     elif menu_option == "Gestion des employés":
         st.markdown("### 👥 Gestion des employés (Admin)")
+        st.markdown("<p style='color: #9ca3af;'>Liste de tous les employés enregistrés (y compris les nouveaux inscrits).</p>", unsafe_allow_html=True)
         edited_df = st.data_editor(
             st.session_state.employes_df,
             num_rows="dynamic",
@@ -489,7 +498,14 @@ else:
             st.success("La base des employés a été mise à jour avec succès !")
 
     elif menu_option == "Admin":
-        st.markdown("### ⚙️ Paramètres de l'application (Admin)")
+        st.markdown("### ⚙️ Paramètres et Liste des inscrits (Admin)")
+        
+        # Affichage rapide de la liste des noms inscrits dans la section Admin
+        st.markdown("#### 📋 Liste des utilisateurs enregistrés")
+        st.dataframe(st.session_state.employes_df[["ID", "Nom", "Utilisateur", "Rôle", "Statut"]], use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        st.markdown("#### 🛠️ Paramètres de l'application")
         with st.form("form_admin_params"):
             col_p1, col_p2 = st.columns(2)
             with col_p1:
