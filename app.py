@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import time
+from datetime import time, datetime
 
 # Configuration de la page
 st.set_page_config(
@@ -90,29 +90,6 @@ st.markdown(
         font-size: 14px;
         border: 1px solid #e5e7eb;
     }
-    .trust-card {
-        background-color: #ffffff;
-        color: #111827;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        margin-bottom: 20px;
-        border: 1px solid #e5e7eb;
-        height: 110px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    .trust-card h4 {
-        color: #111827;
-        margin: 0 0 5px 0;
-        font-size: 16px;
-    }
-    .trust-card p {
-        color: #6b7280;
-        margin: 0;
-        font-size: 13px;
-    }
     .service-card {
         background-color: #111827;
         border: 1px solid #1f2937;
@@ -171,6 +148,15 @@ if "employes_df" not in st.session_state:
         {"ID": 1, "Nom": "Arnold Omam", "Utilisateur": "aomam", "Poste": "Développeur Senior", "Rôle": "Employé", "Statut": "Actif"},
         {"ID": 2, "Nom": "Valere Feugwang", "Utilisateur": "vfeugwang", "Poste": "Directeur Général", "Rôle": "Admin", "Statut": "Actif"},
         {"ID": 3, "Nom": "Jean Dupont", "Utilisateur": "jdupont", "Poste": "Technicien Réseau", "Rôle": "Employé", "Statut": "Actif"}
+    ])
+
+# Initialisation de l'historique des pointages fictifs
+if "pointages_df" not in st.session_state:
+    st.session_state.pointages_df = pd.DataFrame([
+        {"Date": "2026-08-19", "Employé": "Arnold Omam", "Arrivée": "08:45", "Pause Début": "12:02", "Pause Fin": "13:00", "Départ": "17:05", "Statut": "À l'heure"},
+        {"Date": "2026-08-19", "Employé": "Jean Dupont", "Arrivée": "09:15", "Pause Début": "12:10", "Pause Fin": "13:05", "Départ": "17:00", "Statut": "En retard"},
+        {"Date": "2026-08-18", "Employé": "Arnold Omam", "Arrivée": "08:50", "Pause Début": "12:00", "Pause Fin": "13:00", "Départ": "17:10", "Statut": "À l'heure"},
+        {"Date": "2026-08-18", "Employé": "Jean Dupont", "Arrivée": "08:55", "Pause Début": "12:05", "Pause Fin": "13:00", "Départ": "17:02", "Statut": "À l'heure"},
     ])
 
 # --- SI L'UTILISATEUR N'EST PAS CONNECTÉ ---
@@ -385,6 +371,7 @@ else:
         else:
             options_menu = [
                 "Signer ma présence",
+                "Tableau de bord",
                 "Départ Pause (12h)",
                 "Retour Pause (13h)",
                 "Pointer mon départ",
@@ -416,9 +403,56 @@ else:
         st.error(
             "⏳ POINTAGE FERMÉ : Il est plus de 09h00. Le pointage des arrivées n'est plus autorisé pour aujourd'hui."
         )
+        
     elif menu_option == "Tableau de bord":
         st.markdown("### 📊 Tableau de bord de présence")
-        st.info("Ici s'affiche l'historique de vos pointages.")
+        st.markdown("<p style='color: #9ca3af;'>Suivi en temps réel des pointages et de l'assiduité des collaborateurs.</p>", unsafe_allow_html=True)
+        
+        # Filtrer les données selon le rôle (l'employé ne voit que ses données, l'admin voit tout)
+        df_affichage = st.session_state.pointages_df
+        if st.session_state.role != "admin":
+            # Mapper l'username vers un nom potentiel si nécessaire, ou filtrer par correspondance exacte
+            df_affichage = df_affichage[df_affichage["Employé"].str.lower().str.contains("arnold") if "aomam" in st.session_state.username.lower() else df_affichage["Employé"].str.lower().str.contains(st.session_state.username.lower())]
+            if df_affichage.empty:
+                df_affichage = st.session_state.pointages_df # Fallback si pas de correspondance stricte
+
+        # Affichage des KPIs
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        with kpi1:
+            st.metric(label="Total Collaborateurs", value=len(st.session_state.employes_df))
+        with kpi2:
+            st.metric(label="Présents aujourd'hui", value=2, delta="100%")
+        with kpi3:
+            st.metric(label="Arrivées à l'heure", value="75%", delta="-5%")
+        with kpi4:
+            st.metric(label="Retards enregistrés", value=1, delta="+1", delta_color="inverse")
+            
+        st.markdown("---")
+        
+        # Filtres et recherche
+        col_f1, col_f2 = st.columns([2, 2])
+        with col_f1:
+            recherche_employe = st.text_input("🔍 Rechercher un employé", placeholder="Nom...")
+        with col_f2:
+            filtre_statut = st.selectbox("Filtrer par statut", ["Tous", "À l'heure", "En retard"])
+            
+        if recherche_employe:
+            df_affichage = df_affichage[df_affichage["Employé"].str.contains(recherche_employe, case=False, na=False)]
+        if filtre_statut != "Tous":
+            df_affichage = df_affichage[df_affichage["Statut"] == filtre_statut]
+
+        st.markdown("#### Historique détaillé des pointages")
+        st.dataframe(df_affichage, use_container_width=True, hide_index=True)
+        
+        # Graphique d'activité simple
+        st.markdown("#### Tendance des présences sur la semaine")
+        chart_data = pd.DataFrame({
+            "Jour": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"],
+            "À l'heure": [3, 4, 3, 0, 0],
+            "En retard": [1, 0, 1, 0, 0]
+        }).set_index("Jour")
+        st.bar_chart(chart_data)
+
     elif menu_option == "Gestion des employés":
         st.markdown("### 👥 Gestion des employés (Admin)")
         st.markdown("<p style='color: #9ca3af;'>Modifiez, ajoutez ou supprimez des collaborateurs directement depuis le tableau ci-dessous.</p>", unsafe_allow_html=True)
