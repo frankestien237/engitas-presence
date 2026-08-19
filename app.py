@@ -22,10 +22,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Initialisation de la session
+# Initialisation des états de session
 if "connecte" not in st.session_state: st.session_state.connecte = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "role" not in st.session_state: st.session_state.role = ""
+if "public_page" not in st.session_state: st.session_state.public_page = "Connexion"
 
 # Initialisation de la liste des employés en session
 if "employes_list" not in st.session_state:
@@ -42,27 +43,38 @@ if not st.session_state.connecte:
         st.markdown("---")
         st.markdown("**Navigation**")
         auth_mode = st.radio("", ["Connexion", "S'inscrire"], label_visibility="collapsed")
+        
+        # Synchronisation du radio avec la page publique
+        if auth_mode == "Connexion" and st.session_state.public_page not in ["Connexion", "S'inscrire", "Accueil", "Services", "Ecosysteme", "Presence", "Contact", "Devis"]:
+            pass
 
-    # Barre supérieure avec les options (Accueil, Services, etc.)
+    # Barre supérieure interactive avec les options cliquables
     col_logo, c1, c2, c3, c4, c5, col_btn = st.columns([1.5, 0.8, 0.8, 0.9, 0.9, 0.8, 1.2])
     with col_logo:
         st.markdown("### 🌐 ENGITAS")
     with c1:
-        st.button("Accueil")
+        if st.button("Accueil"):
+            st.session_state.public_page = "Accueil"
     with c2:
-        st.button("Services")
+        if st.button("Services"):
+            st.session_state.public_page = "Services"
     with c3:
-        st.button("Écosystème")
+        if st.button("Écosystème"):
+            st.session_state.public_page = "Ecosysteme"
     with c4:
-        st.button("Présence géo")
+        if st.button("Présence géo"):
+            st.session_state.public_page = "Presence"
     with c5:
-        st.button("Contact")
+        if st.button("Contact"):
+            st.session_state.public_page = "Contact"
     with col_btn:
-        st.button("Demander un devis")
+        if st.button("Demander un devis"):
+            st.session_state.public_page = "Devis"
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if auth_mode == "Connexion":
+    # --- GESTION DES VUES PUBLIQUES SELON LE CLIC DU HAUT OU DU LATÉRAL ---
+    if auth_mode == "Connexion" and st.session_state.public_page == "Connexion":
         st.markdown("<h2 style='text-align: center;'>Connexion à votre compte ENGITAS</h2>", unsafe_allow_html=True)
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         username = st.text_input("Nom d'utilisateur")
@@ -80,7 +92,7 @@ if not st.session_state.connecte:
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         
-    elif auth_mode == "S'inscrire":
+    elif auth_mode == "S'inscrire" or st.session_state.public_page == "Inscription":
         st.markdown("<h2 style='text-align: center;'>Inscription Employé - ENGITAS</h2>", unsafe_allow_html=True)
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         nom_complet = st.text_input("Nom complet")
@@ -98,6 +110,34 @@ if not st.session_state.connecte:
             else:
                 st.error("Veuillez remplir tous les champs.")
         st.markdown("</div>", unsafe_allow_html=True)
+
+    elif st.session_state.public_page == "Accueil":
+        st.markdown("<h2 style='text-align: center;'>Bienvenue sur la plateforme ENGITAS</h2>", unsafe_allow_html=True)
+        st.info("ENGITAS est votre solution intelligente de sécurité et de pointage GPS pour la gestion des présences en entreprise.")
+
+    elif st.session_state.public_page == "Services":
+        st.markdown("<h2 style='text-align: center;'>Nos Services</h2>", unsafe_allow_html=True)
+        st.success("• Pointage GPS géolocalisé\n\n• Suivi des pauses (12h - 13h)\n\n• Administration et gestion des équipes en temps réel.")
+
+    elif st.session_state.public_page == "Ecosysteme":
+        st.markdown("<h2 style='text-align: center;'>Notre Écosystème</h2>", unsafe_allow_html=True)
+        st.info("Un environnement interconnecté conçu pour optimiser la productivité et la conformité des horaires de travail.")
+
+    elif st.session_state.public_page == "Presence":
+        st.markdown("<h2 style='text-align: center;'>Technologie Présence Géo</h2>", unsafe_allow_html=True)
+        st.info("Validation stricte des arrivées basée sur la position géographique et les horaires limites (09h00).")
+
+    elif st.session_state.public_page == "Contact":
+        st.markdown("<h2 style='text-align: center;'>Contactez-nous</h2>", unsafe_allow_html=True)
+        st.info("Pour toute assistance technique, contactez le support ou l'administrateur système.")
+
+    elif st.session_state.public_page == "Devis":
+        st.markdown("<h2 style='text-align: center;'>Demande de Devis</h2>", unsafe_allow_html=True)
+        st.text_input("Nom de l'entreprise")
+        st.text_input("Email professionnel")
+        st.text_area("Décrivez vos besoins")
+        if st.button("Envoyer la demande"):
+            st.success("Votre demande de devis a été envoyée avec succès !")
 
 # --- SI L'UTILISATEUR EST CONNECTÉ ---
 else:
@@ -117,9 +157,10 @@ else:
             st.session_state.connecte = False
             st.session_state.username = ""
             st.session_state.role = ""
+            st.session_state.public_page = "Connexion"
             st.rerun()
 
-    # --- LOGIQUE D'AFFICHAGE DES PAGES ---
+    # --- LOGIQUE D'AFFICHAGE DES PAGES INTERNES ---
     st.markdown(f"## {menu_option}")
     
     if menu_option == "Signer ma présence":
