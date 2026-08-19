@@ -120,13 +120,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Initialisation globale et persistante de la session
+# --- SYNCHRONISATION AVEC LES PARAMÈTRES URL (Anti-déconnexion au rafraîchissement) ---
+params = st.query_params
+
 if "connecte" not in st.session_state:
-    st.session_state.connecte = False
+    st.session_state.connecte = params.get("connecte", "False") == "True"
 if "username" not in st.session_state:
-    st.session_state.username = ""
+    st.session_state.username = params.get("username", "")
 if "role" not in st.session_state:
-    st.session_state.role = ""
+    st.session_state.role = params.get("role", "")
+
 if "page_active" not in st.session_state:
     st.session_state.page_active = "Connexion"
 
@@ -139,7 +142,7 @@ if "config_admin" not in st.session_state:
         "alerte_retard": True
     }
 
-# Initialisation de la base de données des employés en session (Persistante)
+# Initialisation de la base de données des employés en session
 if "employes_df" not in st.session_state:
     st.session_state.employes_df = pd.DataFrame([
         {"ID": 1, "Nom": "Arnold Omam", "Utilisateur": "aomam", "Poste": "Développeur Senior", "Rôle": "Employé", "Statut": "Actif"},
@@ -279,17 +282,18 @@ if not st.session_state.connecte:
                 if username_input and password_input:
                     if username_input.strip().lower() == "admin" and password_input == "adminpassword":
                         st.session_state.connecte = True
-                        st.session_state.username = username_input
+                        st.session_state.username = "admin"
                         st.session_state.role = "admin"
-                        st.rerun()
                     else:
-                        # Vérification si l'utilisateur existe dans la base des inscrits
-                        users_list = st.session_state.employes_df["Utilisateur"].values
-                        if username_input in users_list or True: # Accepte la connexion et initialise
-                            st.session_state.connecte = True
-                            st.session_state.username = username_input
-                            st.session_state.role = "employe"
-                            st.rerun()
+                        st.session_state.connecte = True
+                        st.session_state.username = username_input
+                        st.session_state.role = "employe"
+                    
+                    # Sauvegarde dans l'URL pour empêcher la déconnexion lors du rechargement
+                    st.query_params["connecte"] = "True"
+                    st.query_params["username"] = st.session_state.username
+                    st.query_params["role"] = st.session_state.role
+                    st.rerun()
                 else:
                     st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -303,7 +307,6 @@ if not st.session_state.connecte:
             
             if st.button("S'inscrire"):
                 if nom_inscrit and user_inscrit and pwd_inscrit:
-                    # Empêcher les doublons d'utilisateurs
                     if user_inscrit in st.session_state.employes_df["Utilisateur"].values:
                         st.warning("Cet utilisateur existe déjà !")
                     else:
@@ -316,9 +319,8 @@ if not st.session_state.connecte:
                             "Rôle": "Employé",
                             "Statut": "Actif"
                         }
-                        # Ajout immédiat et persistant dans le DataFrame global de session
                         st.session_state.employes_df = pd.concat([st.session_state.employes_df, pd.DataFrame([nouvel_employe])], ignore_index=True)
-                        st.success("Compte créé avec succès ! Il est désormais visible par l'admin.")
+                        st.success("Compte créé avec succès ! Il est instantanément visible dans l'espace admin.")
                 else:
                     st.warning("Veuillez remplir tous les champs.")
             st.markdown("</div>", unsafe_allow_html=True)
@@ -355,6 +357,8 @@ else:
             st.session_state.connecte = False
             st.session_state.username = ""
             st.session_state.role = ""
+            # Nettoyage des paramètres URL à la déconnexion
+            st.query_params.clear()
             st.rerun()
 
     col_logo, col_menu, col_btn = st.columns([1, 3, 1])
